@@ -12,13 +12,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -310,50 +310,7 @@ fun PlaylistScreen(
                 },
             )
 
-            // Base pill container holding filter chips
-            Surface(
-                shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.75f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 6.dp, vertical = 5.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    PlaylistFilter.entries.forEach { filter ->
-                        val isSelected = selectedFilter == filter
-                        Surface(
-                            onClick = {
-                                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                                selectedFilter = filter
-                            },
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent,
-                            modifier = Modifier.height(34.dp),
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.padding(horizontal = 14.dp),
-                            ) {
-                                Text(
-                                    text = filter.label,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Search Bar + Generator button matching Downloads tab design
+            // Search Bar matching Downloads tab design
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -471,11 +428,9 @@ fun PlaylistScreen(
                     !hasHeroRow && filteredPlaylists.isEmpty() && !state.isGenerating &&
                         effectiveSpotify.isEmpty() -> EmptyState()
                     else -> LazyColumn(
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = FloatingNavDefaults.contentBottomPadding()),
-                        verticalArrangement = Arrangement.spacedBy(com.lastwave.app.ui.common.GroupGap),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(TopCurvedSectionClipShape(horizontalInset = 16.dp, cornerRadius = 28.dp)),
+                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = FloatingNavDefaults.contentBottomPadding()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         if (hasHeroRow) {
                             item(key = "heroes_side_by_side", contentType = "heroes_side_by_side") {
@@ -576,52 +531,78 @@ fun PlaylistScreen(
                             }
                         }
 
+                        val chunkedPlaylists = filteredPlaylists.chunked(2)
                         itemsIndexed(
-                            items = filteredPlaylists,
-                            key = { _, playlist -> "pl_${playlist.id}_${playlist.remotePlaylistId ?: "local"}" },
-                        ) { index, playlist ->
-                            val isNewest = playlist.id == state.newestId
-                            val globalIndex = effectiveSpotify.size + index
-                            Box(Modifier.animateItem()) {
-                                PlaylistCard(
-                                    playlist = playlist,
-                                    isNewest = isNewest,
-                                    position = playlistGroupPosition(globalIndex),
-                                    isRegenerating = state.regeneratingId == playlist.id,
-                                    currentTrack = playbackState.current,
-                                    isPlaying = playbackState.isPlaying,
-                                    playbackSource = playbackState.sourceLabel,
-                                    onClick = {
-                                        if (selectedPlaylists.isNotEmpty()) {
-                                            selectedPlaylists = if (selectedPlaylists.contains(playlist.id)) selectedPlaylists - playlist.id else selectedPlaylists + playlist.id
-                                        } else {
-                                            onOpenPlaylist(playlist.id)
+                            items = chunkedPlaylists,
+                            key = { rowIndex, rowItems -> "pl_row_${rowIndex}_${rowItems.firstOrNull()?.id}" },
+                        ) { _, rowItems ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().animateItem(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                rowItems.forEach { playlist ->
+                                    val isThisPlaylistPlaying = playbackState.isPlaying &&
+                                        playbackState.sourceLabel == playlist.title &&
+                                        playlist.tracks.any { t ->
+                                            t.name.equals(playbackState.current?.title, ignoreCase = true) &&
+                                                t.artist.equals(playbackState.current?.artist, ignoreCase = true)
                                         }
-                                    },
-                                    onExport = { viewModel.openExportSheet(playlist.id) },
-                                    onRename = { viewModel.requestRename(playlist.id) },
-                                    onEditCover = { coverEditorPlaylistId = playlist.id },
-                                    onTogglePin = { viewModel.togglePinned(playlist.id) },
-                                    onDownload = { viewModel.downloadPlaylist(playlist.id) },
-                                    onRegenerate = {
-                                        viewModel.regenerate(playlist.id) { newId ->
-                                            onOpenPlaylist(newId)
-                                        }
-                                    },
-                                    onDelete = { viewModel.requestDelete(playlist.id) },
-                                    onMakeLocal = { viewModel.makeLocal(playlist.id) },
-                                    onPlay = {
-                                        musicPlayer.playQueue(
-                                            playlist.tracks.map(GeneratedTrack::toPlayableTrack),
-                                            startIndex = 0,
-                                            sourceLabel = playlist.title,
+                                    val isSelected = selectedPlaylists.contains(playlist.id)
+                                    val isRegenerating = state.regeneratingId == playlist.id
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .then(
+                                                if (isSelected) {
+                                                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
+                                                } else Modifier
+                                            )
+                                            .combinedClickable(
+                                                onClick = {
+                                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                                                    if (selectedPlaylists.isNotEmpty()) {
+                                                        selectedPlaylists = if (isSelected) selectedPlaylists - playlist.id else selectedPlaylists + playlist.id
+                                                    } else {
+                                                        onOpenPlaylist(playlist.id)
+                                                    }
+                                                },
+                                                onLongClick = {
+                                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                                    selectedPlaylists = if (isSelected) selectedPlaylists - playlist.id else selectedPlaylists + playlist.id
+                                                },
+                                            ),
+                                    ) {
+                                        PlaylistCover(
+                                            playlist = playlist,
+                                            modifier = Modifier.fillMaxSize(),
+                                            cornerRadius = 14.dp,
                                         )
-                                    },
-                                    isSelected = selectedPlaylists.contains(playlist.id),
-                                    onLongClick = {
-                                        selectedPlaylists = if (selectedPlaylists.contains(playlist.id)) selectedPlaylists - playlist.id else selectedPlaylists + playlist.id
-                                    },
-                                )
+                                        if (isThisPlaylistPlaying) {
+                                            com.lastwave.app.ui.player.PlayingWaveBars(
+                                                Modifier.align(Alignment.BottomEnd).padding(8.dp).size(26.dp, 20.dp),
+                                            )
+                                        }
+                                        if (isRegenerating) {
+                                            Surface(
+                                                shape = RoundedCornerShape(14.dp),
+                                                color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.62f),
+                                                modifier = Modifier.fillMaxSize(),
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    com.lastwave.app.ui.common.ExpressiveInlineLoadingIndicator(
+                                                        size = 28.dp,
+                                                        color = androidx.compose.ui.graphics.Color.White,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (rowItems.size == 1) {
+                                    Spacer(Modifier.weight(1f))
+                                }
                             }
                         }
                     }
