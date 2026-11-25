@@ -1700,7 +1700,7 @@ class MusicPlayer @Inject constructor(
                 /* minBufferMs = */ 45_000,
                 /* maxBufferMs = */ 120_000,
                 /* bufferForPlaybackMs = */ 250,
-                /* bufferForPlaybackAfterRebufferMs = */ 1_500,
+                /* bufferForPlaybackAfterRebufferMs = */ 800,
             )
             .setPrioritizeTimeOverSizeThresholds(true)
             .setBackBuffer(15_000, true)
@@ -4693,7 +4693,7 @@ class MusicPlayer @Inject constructor(
                 currentCoroutineContext().ensureActive()
                 // Read-ahead beyond the player's own buffer is a byte
                 // prefetch: only on unmetered routes, and paused on a handoff.
-                if (_state.value.isBuffering || !_state.value.isPlaying || !networkMonitor.isUnmetered()) {
+                if (_state.value.isBuffering || !_state.value.isPlaying) {
                     delay(CURRENT_TRACK_CACHE_STANDBY_YIELD_MS)
                     continue
                 }
@@ -8065,7 +8065,7 @@ class MusicPlayer @Inject constructor(
             .setBufferDurationsMs(
                 /* minBufferMs = */ 15_000,
                 /* maxBufferMs = */ 15_000,
-                /* bufferForPlaybackMs = */ 1_500,
+                /* bufferForPlaybackMs = */ 400,
                 /* bufferForPlaybackAfterRebufferMs = */ 1_500,
             )
             .build()
