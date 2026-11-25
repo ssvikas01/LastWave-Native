@@ -128,7 +128,7 @@ open class MainShellActivity : androidx.fragment.app.FragmentActivity() {
                             if (now - lastShakeTime > 1200L) {
                                 lastShakeTime = now
                                 musicPlayer.get().toggleShuffle()
-                                musicPlayer.get().skipNext()
+                                musicPlayer.get().next()
                             }
                         }
                     }
