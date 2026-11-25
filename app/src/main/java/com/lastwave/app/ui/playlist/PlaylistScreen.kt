@@ -418,7 +418,7 @@ fun PlaylistScreen(
             ) {
                 when {
                     state.isLoading && state.playlists.isEmpty() && !state.isGenerating -> LoadingState()
-                    !hasHeroRow && filteredPlaylists.isEmpty() && !state.isGenerating &&
+                    searchQuery.isBlank() && !hasHeroRow && filteredPlaylists.isEmpty() && !state.isGenerating &&
                         effectiveSpotify.isEmpty() -> EmptyState()
                     else -> LazyColumn(
                         contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = FloatingNavDefaults.contentBottomPadding()),
@@ -636,48 +636,54 @@ fun PlaylistScreen(
                                     items = matchingSongs,
                                     key = { idx, (plTitle, t) -> "lib_song_${plTitle}_${t.name}_${t.artist}_$idx" },
                                 ) { _, (plTitle, track) ->
-                                    Surface(
-                                        onClick = {
-                                            musicPlayer.play(track.toPlayableTrack(), sourceLabel = plTitle, startRadio = true)
-                                        },
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
-                                        modifier = Modifier.fillMaxWidth(),
+                                    val playable = track.toPlayableTrack()
+                                    com.lastwave.app.ui.player.SwipeableTrackRow(
+                                        onSwipeRightPlayNext = { musicPlayer.playNext(playable) },
+                                        onSwipeLeftAddToQueue = { musicPlayer.addToQueue(playable) },
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
+                                        Surface(
+                                            onClick = {
+                                                musicPlayer.play(playable, sourceLabel = plTitle, startRadio = true)
+                                            },
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f),
+                                            modifier = Modifier.fillMaxWidth(),
                                         ) {
-                                            ArtworkImage(
-                                                name = track.name,
-                                                artist = track.artist,
-                                                embeddedUrl = track.artworkUrl,
-                                                fallbackIcon = Icons.Filled.MusicNote,
-                                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
-                                            )
-                                            Spacer(Modifier.width(12.dp))
-                                            Column(Modifier.weight(1f)) {
-                                                Text(
-                                                    text = track.name,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.Medium,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                ArtworkImage(
+                                                    name = track.name,
+                                                    artist = track.artist,
+                                                    embeddedUrl = track.artworkUrl,
+                                                    fallbackIcon = Icons.Filled.MusicNote,
+                                                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
                                                 )
-                                                Text(
-                                                    text = listOfNotNull(track.artist, track.album?.takeIf { it.isNotBlank() }, plTitle).joinToString(" • "),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
+                                                Spacer(Modifier.width(12.dp))
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = track.name,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Medium,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                    Text(
+                                                        text = listOfNotNull(track.artist, track.album?.takeIf { it.isNotBlank() }, plTitle).joinToString(" • "),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                    )
+                                                }
+                                                Icon(
+                                                    imageVector = Icons.Filled.PlayArrow,
+                                                    contentDescription = "Play",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(20.dp),
                                                 )
                                             }
-                                            Icon(
-                                                imageVector = Icons.Filled.PlayArrow,
-                                                contentDescription = "Play",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp),
-                                            )
                                         }
                                     }
                                 }

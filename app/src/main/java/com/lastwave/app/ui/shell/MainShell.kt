@@ -64,6 +64,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material3.AlertDialog
@@ -205,10 +206,10 @@ class MainShellViewModel @Inject constructor(
     }
 }
 
-private enum class MainTab(val labelRes: Int) {
-    PLAYLISTS(com.lastwave.app.R.string.nav_playlists), // Library first
-    FEED(com.lastwave.app.R.string.nav_feed),
-    STATS(com.lastwave.app.R.string.nav_stats),
+private enum class MainTab(val labelText: String) {
+    PLAYLISTS("Library"),
+    FEED("Home"),
+    EQUALIZER("Equalizer"),
 }
 
 /** Shared with any screen hosted inside [MainShell] so their scrolling
@@ -458,27 +459,10 @@ fun MainShell(
                             onOpenPodcasts = onOpenPodcasts,
                             onOpenPodcastShow = onOpenPodcastShow,
                             onOpenYouTubeLogin = onOpenYouTubeLogin,
-                            onOpenStats = {
-                                val statsIdx = tabs.indexOf(MainTab.STATS)
-                                if (statsIdx >= 0) {
-                                    selectedTabIndex = statsIdx
-                                    scope.launch { pagerState.animateScrollToPage(statsIdx) }
-                                } else {
-                                    onOpenListeningStats()
-                                }
-                            },
+                            onOpenStats = onOpenListeningStats,
                             feedTapEvents = feedTapEvents,
                         )
-                        MainTab.STATS -> HomeScreen(
-                            onOpenSettings = { showAccountMenu = true },
-                            onOpenSearch = onOpenSearch,
-                            onOpenDiscover = onOpenDiscover,
-                            onOpenGenres = onOpenGenres,
-                            onOpenListeningStats = onOpenListeningStats,
-                            onOpenFriends = onOpenFriends,
-                            onOpenDownloads = onOpenDownloads,
-                            avatarUrl = ytConnection.photoUrl.takeIf { ytConnection.isConnected },
-                        )
+                        MainTab.EQUALIZER -> com.lastwave.app.ui.settings.EqualizerTabScreen()
                         MainTab.PLAYLISTS -> PlaylistScreen(
                             onOpenPlaylist = onOpenPlaylist,
                             onOpenFeedPlaylist = onOpenFeedPlaylist,
@@ -569,7 +553,7 @@ fun MainShell(
                         if (navigationLiquidState != null) {
                             val items = tabs.map { tab ->
                                 LiquidNavigationItem(
-                                    label = androidx.compose.ui.res.stringResource(tab.labelRes),
+                                    label = tab.labelText,
                                     icon = tab.icon(),
                                 )
                             }
@@ -1039,7 +1023,7 @@ private fun FloatingNavBar(
                             }
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = androidx.compose.ui.res.stringResource(tab.labelRes),
+                                text = tab.labelText,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                                 color = labelColor,
@@ -1114,7 +1098,7 @@ private fun FloatingNavBar(
                     tabs.forEachIndexed { index, tab ->
                         val onClick = remember(index) { { onSelect(index) } }
                         FloatingNavItem(
-                            label = androidx.compose.ui.res.stringResource(tab.labelRes),
+                            label = tab.labelText,
                             icon = tab.icon(),
                             selected = selectedIndex == index,
                             onClick = onClick,
@@ -1154,7 +1138,7 @@ private fun FloatingNavPill(
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = tab.icon(),
-                contentDescription = androidx.compose.ui.res.stringResource(tab.labelRes),
+                contentDescription = tab.labelText,
                 modifier = Modifier.size(24.dp),
             )
         }
@@ -1244,7 +1228,7 @@ private fun FloatingNavItem(
 
 private fun MainTab.icon(): ImageVector = when (this) {
     MainTab.FEED -> Icons.Filled.Home
-    MainTab.STATS -> Icons.Filled.Leaderboard
+    MainTab.EQUALIZER -> Icons.Filled.GraphicEq
     MainTab.PLAYLISTS -> Icons.AutoMirrored.Filled.QueueMusic
 }
 

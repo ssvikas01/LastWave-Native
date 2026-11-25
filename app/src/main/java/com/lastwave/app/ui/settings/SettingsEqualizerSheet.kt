@@ -430,6 +430,39 @@ internal fun EqualizerCurveGraph(
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
+fun EqualizerTabScreen(
+    viewModel: SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+) {
+    val eq by androidx.lifecycle.compose.collectAsStateWithLifecycle(viewModel.equalizer)
+    val musicPlayer = com.lastwave.app.ui.player.LocalMusicPlayer.current
+    val playbackState by androidx.lifecycle.compose.collectAsStateWithLifecycle(musicPlayer.listPlaybackState)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        com.lastwave.app.ui.feed.FlowingArtworkTopGlow(
+            artworkUrl = playbackState.current?.artworkUrl,
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
+        EqualizerContent(
+            eq = eq,
+            onSetEnabled = viewModel::setEqualizerEnabled,
+            onPickPreset = viewModel::applyEqPreset,
+            onBandPreview = viewModel::previewEqBandGain,
+            onBandChange = viewModel::setEqBandGain,
+            onOpenAutoEq = {},
+            onSavePreset = viewModel::saveEqPreset,
+            onRenamePreset = viewModel::renameEqPreset,
+            onDeletePreset = viewModel::deleteEqPreset,
+            bottomPadding = com.lastwave.app.ui.shell.FloatingNavDefaults.contentBottomPadding(),
+            modifier = Modifier
+                .fillMaxSize()
+                .adaptiveContentWidth(maxWidth = 640.dp)
+                .align(Alignment.TopCenter),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
 internal fun EqualizerSheet(
     eq: EqualizerSettings,
     onDismiss: () -> Unit,
@@ -443,21 +476,6 @@ internal fun EqualizerSheet(
     onDeletePreset: (String) -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    /** Name dialog: null closed, "" saving a new preset, otherwise renaming that preset. */
-    var nameDialogFor by remember { mutableStateOf<String?>(null) }
-    var deleteConfirmFor by remember { mutableStateOf<String?>(null) }
-    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-
-    var gains by remember(eq.gainsDb) {
-        mutableStateOf(
-            FloatArray(EQ_BAND_FREQS_HZ.size) { index ->
-                eq.gainsDb.getOrNull(index)
-                    ?.takeIf { it.isFinite() }
-                    ?.coerceIn(-EQ_MAX_DB, EQ_MAX_DB)
-                    ?: 0f
-            },
-        )
-    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -474,15 +492,62 @@ internal fun EqualizerSheet(
             ) {}
         },
     ) {
-        Column(
+        EqualizerContent(
+            eq = eq,
+            onSetEnabled = onSetEnabled,
+            onPickPreset = onPickPreset,
+            onBandPreview = onBandPreview,
+            onBandChange = onBandChange,
+            onOpenAutoEq = onOpenAutoEq,
+            onSavePreset = onSavePreset,
+            onRenamePreset = onRenamePreset,
+            onDeletePreset = onDeletePreset,
+            bottomPadding = 32.dp + safeDrawingBottomPadding(),
             modifier = Modifier
                 .fillMaxWidth()
                 .adaptiveContentWidth(maxWidth = 640.dp)
-                .align(Alignment.CenterHorizontally)
+                .align(Alignment.CenterHorizontally),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+internal fun EqualizerContent(
+    eq: EqualizerSettings,
+    onSetEnabled: (Boolean) -> Unit,
+    onPickPreset: (String) -> Unit,
+    onBandPreview: (Int, Float) -> Unit,
+    onBandChange: (Int, Float) -> Unit,
+    onOpenAutoEq: () -> Unit = {},
+    onSavePreset: (String) -> Unit = {},
+    onRenamePreset: (String, String) -> Unit = { _, _ -> },
+    onDeletePreset: (String) -> Unit = {},
+    bottomPadding: androidx.compose.ui.unit.Dp = 32.dp,
+    modifier: Modifier = Modifier,
+) {
+    /** Name dialog: null closed, "" saving a new preset, otherwise renaming that preset. */
+    var nameDialogFor by remember { mutableStateOf<String?>(null) }
+    var deleteConfirmFor by remember { mutableStateOf<String?>(null) }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+
+    var gains by remember(eq.gainsDb) {
+        mutableStateOf(
+            FloatArray(EQ_BAND_FREQS_HZ.size) { index ->
+                eq.gainsDb.getOrNull(index)
+                    ?.takeIf { it.isFinite() }
+                    ?.coerceIn(-EQ_MAX_DB, EQ_MAX_DB)
+                    ?: 0f
+            },
+        )
+    }
+
+        Column(
+            modifier = modifier
                 .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp + safeDrawingBottomPadding()),
+                .padding(bottom = bottomPadding),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Header Row
@@ -823,7 +888,6 @@ internal fun EqualizerSheet(
                 modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
             )
         }
-    }
 }
 
 /**

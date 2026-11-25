@@ -376,8 +376,14 @@ internal fun MainControls(state: MusicPlayerState, player: MusicPlayer, isTransl
     // Next looked crushed against the edge. The pill now flexes between a
     // legible floor and its design width; prev/next never clip on any
     // screen size or Android version.
-    val sideSize = if (isTranslucent) 54.dp else 58.dp
-    val gapSize = if (isTranslucent) 18.dp else 16.dp
+    val sideSize = if (isTranslucent) 58.dp else 62.dp
+    val sideShape = RoundedCornerShape(20.dp)
+    val gapSize = 14.dp
+    val playCorner by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (state.isPlaying) 18.dp else 32.dp,
+        animationSpec = ExpressiveMotion.spatialSpring(),
+        label = "playCorner",
+    )
     androidx.compose.foundation.layout.BoxWithConstraints(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
@@ -389,11 +395,11 @@ internal fun MainControls(state: MusicPlayerState, player: MusicPlayer, isTransl
             verticalAlignment = Alignment.CenterVertically,
         ) {
         LiquidGlassSurface(
-            glassModifier = Modifier.liquidGlassChrome(CircleShape, LocalLiquidGlass.current, LiquidGlassPreset.PlayerControls, interactionSource = prevInteraction),
+            glassModifier = Modifier.liquidGlassChrome(sideShape, LocalLiquidGlass.current, LiquidGlassPreset.PlayerControls, interactionSource = prevInteraction),
             onClick = hapticClick(action = player::previous),
             interactionSource = prevInteraction,
-            shape = CircleShape,
-            color = liquidGlassContainerColor(if (isTranslucent) Color.White.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.40f)),
+            shape = sideShape,
+            color = liquidGlassContainerColor(if (isTranslucent) Color.White.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)),
             contentColor = if (isTranslucent) Color.White.copy(alpha = 0.94f) else MaterialTheme.colorScheme.onSurface,
             tonalElevation = 0.dp,
             shadowElevation = 0.dp,
@@ -405,10 +411,10 @@ internal fun MainControls(state: MusicPlayerState, player: MusicPlayer, isTransl
                 },
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.SkipPrevious, "Previous", Modifier.size(if (isTranslucent) 28.dp else 31.dp))
+                Icon(Icons.Filled.SkipPrevious, "Previous", Modifier.size(32.dp))
             }
         }
-        val pillShape = RoundedCornerShape(100)
+        val pillShape = RoundedCornerShape(playCorner)
         // Single source of truth for "glass is actually refracting": the
         // container helper returns Transparent only when setting + device
         // capability + backdrop all hold. The old contentColor checked only
@@ -465,11 +471,11 @@ internal fun MainControls(state: MusicPlayerState, player: MusicPlayer, isTransl
             }
         }
         LiquidGlassSurface(
-            glassModifier = Modifier.liquidGlassChrome(CircleShape, LocalLiquidGlass.current, LiquidGlassPreset.PlayerControls, interactionSource = nextInteraction),
+            glassModifier = Modifier.liquidGlassChrome(sideShape, LocalLiquidGlass.current, LiquidGlassPreset.PlayerControls, interactionSource = nextInteraction),
             onClick = hapticClick(action = player::next),
             interactionSource = nextInteraction,
-            shape = CircleShape,
-            color = liquidGlassContainerColor(if (isTranslucent) Color.White.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.40f)),
+            shape = sideShape,
+            color = liquidGlassContainerColor(if (isTranslucent) Color.White.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)),
             contentColor = if (isTranslucent) Color.White.copy(alpha = 0.94f) else MaterialTheme.colorScheme.onSurface,
             tonalElevation = 0.dp,
             shadowElevation = 0.dp,
@@ -481,7 +487,7 @@ internal fun MainControls(state: MusicPlayerState, player: MusicPlayer, isTransl
                 },
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.SkipNext, "Next", Modifier.size(if (isTranslucent) 28.dp else 31.dp))
+                Icon(Icons.Filled.SkipNext, "Next", Modifier.size(32.dp))
             }
         }
         }
@@ -571,87 +577,207 @@ internal fun PlayerUtilityControls(
     val edgeButtonBackground = if (isTranslucent) {
         Color.White.copy(alpha = 0.12f)
     } else {
-        MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.40f)
+        MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)
     }
     val edgeButtonContent = if (isTranslucent) {
-        Color.White.copy(alpha = 0.85f)
+        Color.White.copy(alpha = 0.90f)
     } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.90f)
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f)
+    }
+    val isCustomAudio = state.speed != 1f || state.pitch != 1f
+    val repeatLabel = when (state.repeatMode) {
+        Player.REPEAT_MODE_ONE -> "Repeat One"
+        Player.REPEAT_MODE_ALL -> "Repeat All"
+        else -> "Repeat"
     }
 
-    Row(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        PlayerModeButton(
-            active = state.shuffleEnabled,
-            description = if (state.shuffleEnabled) "Shuffle on" else "Shuffle off",
-            icon = Icons.Filled.Shuffle,
-            onClick = player::toggleShuffle,
-            background = edgeButtonBackground,
-            foreground = edgeButtonContent,
-            shape = connectedShape(0, 4),
-            iconSize = if (isTranslucent) 19.dp else 20.dp,
-            modifier = Modifier.weight(1f).height(if (isTranslucent) 44.dp else 48.dp),
-        )
-        val isCustomAudio = state.speed != 1f || state.pitch != 1f
-        if (musicVideoEnabled && onToggleVideo != null) {
-            DividedUtilityPill(
-                isTranslucent = isTranslucent,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PlayerLabeledModeButton(
+                active = state.shuffleEnabled,
+                label = if (state.shuffleEnabled) "Shuffle On" else "Shuffle",
+                icon = Icons.Filled.Shuffle,
+                onClick = player::toggleShuffle,
                 background = edgeButtonBackground,
                 foreground = edgeButtonContent,
-                isCustomAudio = isCustomAudio,
-                isVideoActive = isVideoActive,
-                onOpenAudioControls = onOpenAudioControls,
-                onToggleVideo = onToggleVideo,
-                shape = connectedShape(1, 4),
-                modifier = Modifier.weight(1f).height(if (isTranslucent) 44.dp else 48.dp),
+                modifier = Modifier.weight(1f).height(46.dp),
             )
-        } else {
-            PlayerModeButton(
+            PlayerLabeledModeButton(
                 active = isCustomAudio,
-                description = "Audio controls",
+                label = "Audio & EQ",
                 icon = if (isCustomAudio) Icons.Filled.Tune else Icons.Filled.VolumeUp,
                 onClick = onOpenAudioControls,
                 background = edgeButtonBackground,
                 foreground = edgeButtonContent,
-                shape = connectedShape(1, 4),
-                iconSize = if (isTranslucent) 19.dp else 20.dp,
-                modifier = Modifier.weight(1f).height(if (isTranslucent) 44.dp else 48.dp),
+                modifier = Modifier.weight(1f).height(46.dp),
                 haptic = HapticFeedbackType.ContextClick,
             )
         }
-        PlayerModeButton(
-            active = state.repeatMode != Player.REPEAT_MODE_OFF,
-            description = when (state.repeatMode) {
-                Player.REPEAT_MODE_ONE -> "Repeat one"
-                Player.REPEAT_MODE_ALL -> "Repeat all"
-                else -> "Repeat off"
-            },
-            icon = if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-            onClick = player::cycleRepeatMode,
-            background = edgeButtonBackground,
-            foreground = edgeButtonContent,
-            shape = connectedShape(2, 4),
-            iconSize = if (isTranslucent) 19.dp else 20.dp,
-            modifier = Modifier.weight(1f).height(if (isTranslucent) 44.dp else 48.dp),
-            // Repeat one is the last stop before off.
-            haptic = if (state.repeatMode == Player.REPEAT_MODE_ONE) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn,
-        )
-        PlayerModeButton(
-            active = false,
-            description = "Queue",
-            icon = Icons.Filled.QueueMusic,
-            onClick = onOpenQueue,
-            background = edgeButtonBackground,
-            foreground = edgeButtonContent,
-            shape = connectedShape(3, 4),
-            iconSize = if (isTranslucent) 19.dp else 20.dp,
-            modifier = Modifier.weight(1f).height(if (isTranslucent) 44.dp else 48.dp),
-            haptic = HapticFeedbackType.ContextClick,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PlayerLabeledModeButton(
+                active = state.repeatMode != Player.REPEAT_MODE_OFF,
+                label = repeatLabel,
+                icon = if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                onClick = player::cycleRepeatMode,
+                background = edgeButtonBackground,
+                foreground = edgeButtonContent,
+                modifier = Modifier.weight(1f).height(46.dp),
+                haptic = if (state.repeatMode == Player.REPEAT_MODE_ONE) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn,
+            )
+            PlayerLabeledModeButton(
+                active = false,
+                label = "Queue",
+                icon = Icons.Filled.QueueMusic,
+                onClick = onOpenQueue,
+                background = edgeButtonBackground,
+                foreground = edgeButtonContent,
+                modifier = Modifier.weight(1f).height(46.dp),
+                haptic = HapticFeedbackType.ContextClick,
+            )
+        }
     }
+}
+
+@Composable
+private fun PlayerLabeledModeButton(
+    active: Boolean,
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    background: Color,
+    foreground: Color,
+    modifier: Modifier = Modifier,
+    haptic: HapticFeedbackType = if (active) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        if (pressed) 0.94f else 1f, ExpressiveMotion.spatialSpring(), label = "labeledModePress",
+    )
+    val container by animateColorAsState(
+        if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.88f)
+        else liquidGlassContainerColor(background), label = "labeledModeContainer",
+    )
+    val content by animateColorAsState(
+        if (active) MaterialTheme.colorScheme.onPrimaryContainer else foreground, label = "labeledModeContent",
+    )
+    val shape = RoundedCornerShape(16.dp)
+    LiquidGlassSurface(
+        glassModifier = Modifier.liquidGlassChrome(shape, LocalLiquidGlass.current, LiquidGlassPreset.PlayerControls, interactionSource = interaction),
+        onClick = hapticClick(haptic, onClick),
+        shape = shape,
+        color = container,
+        contentColor = content,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .semantics {
+                selected = active
+                stateDescription = label
+            },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Icon(icon, label, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/**
+ * Reusable swipeable wrapper for any song row:
+ * - Swipe Right (StartToEnd) -> Play Next
+ * - Swipe Left (EndToStart) -> Add to Queue
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeableTrackRow(
+    onSwipeRightPlayNext: () -> Unit,
+    onSwipeLeftAddToQueue: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val dismissState = androidx.compose.material3.rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> {
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onSwipeRightPlayNext()
+                }
+                androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> {
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onSwipeLeftAddToQueue()
+                }
+                androidx.compose.material3.SwipeToDismissBoxValue.Settled -> Unit
+            }
+            false
+        },
+    )
+    androidx.compose.material3.SwipeToDismissBox(
+        state = dismissState,
+        modifier = modifier,
+        backgroundContent = {
+            val dir = dismissState.dismissDirection
+            val isRight = dir == androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd
+            val bg = when (dir) {
+                androidx.compose.material3.SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                androidx.compose.material3.SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                else -> Color.Transparent
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(bg, RoundedCornerShape(14.dp))
+                    .padding(horizontal = 20.dp),
+                contentAlignment = if (isRight) Alignment.CenterStart else Alignment.CenterEnd,
+            ) {
+                if (dir != androidx.compose.material3.SwipeToDismissBoxValue.Settled) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.QueueMusic,
+                            contentDescription = null,
+                            tint = if (isRight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (isRight) "Play Next" else "Add to Queue",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isRight) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+                }
+            }
+        },
+        content = { content() },
+    )
 }
 
 /**

@@ -621,34 +621,47 @@ fun SearchScreen(
                                             playbackState.current?.title.equals(item.name, ignoreCase = true) &&
                                             (item.artist.isNullOrBlank() || playbackState.current?.artist.equals(item.artist, ignoreCase = true))
 
-                                        SearchResultRow(
-                                            item = item,
-                                            isPlaying = isItemPlaying,
-                                            onClick = {
-                                                when (item.type) {
-                                                    SearchResultType.ARTIST -> onOpenArtist(item.name, item.entityId)
-                                                    SearchResultType.ALBUM -> onOpenAlbum(item.name, item.artist.orEmpty(), item.entityId)
-                                                    SearchResultType.PLAYLIST -> item.entityId?.let(onOpenPlaylist)
-                                                    SearchResultType.TRACK -> viewModel.playResult(item)
-                                                }
-                                            },
-                                            onLongClick = {
-                                                if (item.type == SearchResultType.TRACK) {
-                                                    miniTrayItem = item
-                                                }
-                                            },
-                                            onMenu = {
-                                                menuPlayableTrack = if (item.type == SearchResultType.TRACK) {
-                                                    item.toPlayableTrack(podcast = false)
-                                                } else null
-                                                menuTarget = when (item.type) {
-                                                    SearchResultType.TRACK -> TrackMenuTarget.Track(item.name, item.artist.orEmpty(), item.url)
-                                                    SearchResultType.ARTIST -> TrackMenuTarget.Artist(item.name, item.url)
-                                                    SearchResultType.ALBUM -> TrackMenuTarget.Album(item.name, item.artist.orEmpty(), item.url)
-                                                    SearchResultType.PLAYLIST -> null
-                                                }
-                                            },
-                                        )
+                                        val rowContent = @Composable {
+                                            SearchResultRow(
+                                                item = item,
+                                                isPlaying = isItemPlaying,
+                                                onClick = {
+                                                    when (item.type) {
+                                                        SearchResultType.ARTIST -> onOpenArtist(item.name, item.entityId)
+                                                        SearchResultType.ALBUM -> onOpenAlbum(item.name, item.artist.orEmpty(), item.entityId)
+                                                        SearchResultType.PLAYLIST -> item.entityId?.let(onOpenPlaylist)
+                                                        SearchResultType.TRACK -> viewModel.playResult(item)
+                                                    }
+                                                },
+                                                onLongClick = {
+                                                    if (item.type == SearchResultType.TRACK) {
+                                                        miniTrayItem = item
+                                                    }
+                                                },
+                                                onMenu = {
+                                                    menuPlayableTrack = if (item.type == SearchResultType.TRACK) {
+                                                        item.toPlayableTrack(podcast = false)
+                                                    } else null
+                                                    menuTarget = when (item.type) {
+                                                        SearchResultType.TRACK -> TrackMenuTarget.Track(item.name, item.artist.orEmpty(), item.url)
+                                                        SearchResultType.ARTIST -> TrackMenuTarget.Artist(item.name, item.url)
+                                                        SearchResultType.ALBUM -> TrackMenuTarget.Album(item.name, item.artist.orEmpty(), item.url)
+                                                        SearchResultType.PLAYLIST -> null
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        if (item.type == SearchResultType.TRACK) {
+                                            val playable = item.toPlayableTrack(podcast = false)
+                                            com.lastwave.app.ui.player.SwipeableTrackRow(
+                                                onSwipeRightPlayNext = { musicPlayer.playNext(playable) },
+                                                onSwipeLeftAddToQueue = { musicPlayer.addToQueue(playable) },
+                                            ) {
+                                                rowContent()
+                                            }
+                                        } else {
+                                            rowContent()
+                                        }
                                     }
                                 }
                             }

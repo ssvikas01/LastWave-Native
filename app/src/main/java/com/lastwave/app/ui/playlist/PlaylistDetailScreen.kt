@@ -809,6 +809,11 @@ fun PlaylistDetailScreen(
                                 alpha = if (isDragging) 0.96f else 1f
                             },
                     ) {
+                        val playable = track.toPlayableTrack()
+                        com.lastwave.app.ui.player.SwipeableTrackRow(
+                            onSwipeRightPlayNext = { musicPlayer.playNext(playable) },
+                            onSwipeLeftAddToQueue = { musicPlayer.addToQueue(playable) },
+                        ) {
                         NativeTrackRow(
                             track = track,
                             position = rowPosition,
@@ -833,6 +838,8 @@ fun PlaylistDetailScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                                 menuTarget = displayTrackIndices[index] to track
                             },
+                        )
+                        }
                             onLongClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val safeIndex = index.coerceIn(displayTracks.indices)

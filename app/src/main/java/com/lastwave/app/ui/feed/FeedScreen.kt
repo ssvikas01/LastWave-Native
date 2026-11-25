@@ -948,18 +948,101 @@ fun FeedScreen(
 
                         if (isInfiniteRadioVisible) {
                             feedSectionItem(key = "infinite_radio", contentType = "infinite_radio") {
-                                if (combinedQuickPicks.isEmpty()) {
-                                    InfiniteRadioLoadingSkeleton()
-                                } else {
-                                    InfiniteRadioHero(
-                                        quickPicks = currentQuickPicks,
-                                        onPlay = viewModel::playInfiniteRadio,
-                                    )
+                                HomeContainerSection(
+                                    shape = RoundedCornerShape(
+                                        topStart = 28.dp,
+                                        topEnd = 28.dp,
+                                        bottomStart = if (allContainerKeys.isEmpty()) 28.dp else 0.dp,
+                                        bottomEnd = if (allContainerKeys.isEmpty()) 28.dp else 0.dp,
+                                    ),
+                                ) {
+                                    Surface(
+                                        onClick = onOpenStats,
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.65f),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                            ) {
+                                                Text(
+                                                    text = "Listening Stats",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                )
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                ) {
+                                                    Text(
+                                                        text = "Full Stats →",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                                    )
+                                                }
+                                            }
+                                            Spacer(Modifier.height(12.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                            ) {
+                                                Column(horizontalAlignment = Alignment.Start) {
+                                                    Text(
+                                                        text = if (state.statsScrobbles > 0) "${state.statsScrobbles}" else "—",
+                                                        style = MaterialTheme.typography.titleLarge,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                    )
+                                                    Text(
+                                                        text = "Plays",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Text(
+                                                        text = if (state.statsTracks > 0) "${state.statsTracks}" else "—",
+                                                        style = MaterialTheme.typography.titleLarge,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                    Text(
+                                                        text = "Songs",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
+                                                Column(horizontalAlignment = Alignment.End) {
+                                                    Text(
+                                                        text = if (state.statsArtists > 0) "${state.statsArtists}" else "—",
+                                                        style = MaterialTheme.typography.titleLarge,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                    Text(
+                                                        text = "Artists",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
 
-                        if (isQuickTilesVisible) {
+                        if (false && isQuickTilesVisible) {
                             feedSectionItem(key = "quick_tiles", contentType = "quick_tiles") {
                                 HomeContainerSection(
                                     shape = quickTilesShape,

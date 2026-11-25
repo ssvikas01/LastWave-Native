@@ -1129,31 +1129,30 @@ internal fun FullPlayer(
                             // FullPlayer sits on a dark blurred-artwork scrim in both light and
                             // dark mode, so foreground must use the white overlay palette â€”
                             // never MaterialTheme onSurface (near-black in light mode).
-                            LiquidGlassSurface(
-                                onClick = hapticClick {
-                                    if (currentTab != FullPlayerTab.NOW_PLAYING) {
+                            if (currentTab != FullPlayerTab.NOW_PLAYING) {
+                                LiquidGlassSurface(
+                                    onClick = hapticClick {
+                                        lyricsFullscreen = false
                                         onTabChange(FullPlayerTab.NOW_PLAYING)
-                                    } else {
-                                        onCollapse()
-                                    }
-                                },
-                                shape = CircleShape,
-                                color = liquidGlassContainerColor(if (isThemeLight) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.14f)),
-                                contentColor = if (isThemeLight) Color(0xFF222226) else Color.White.copy(alpha = 0.94f),
-                                glassModifier = Modifier.liquidGlassChrome(
-                                    CircleShape,
-                                    LocalLiquidGlass.current,
-                                    LiquidGlassPreset.FloatingControls,
-                                ),
-                                modifier = Modifier
-                                    .align(Alignment.CenterStart)
-                                    .size(44.dp),
-                            ) {
-                                Icon(
-                                    if (currentTab != FullPlayerTab.NOW_PLAYING) Icons.Filled.ArrowBack else Icons.Filled.ExpandMore,
-                                    if (currentTab != FullPlayerTab.NOW_PLAYING) "Back to player" else "Minimize player",
-                                    modifier = Modifier.size(26.dp),
-                                )
+                                    },
+                                    shape = CircleShape,
+                                    color = liquidGlassContainerColor(if (isThemeLight) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.14f)),
+                                    contentColor = if (isThemeLight) Color(0xFF222226) else Color.White.copy(alpha = 0.94f),
+                                    glassModifier = Modifier.liquidGlassChrome(
+                                        CircleShape,
+                                        LocalLiquidGlass.current,
+                                        LiquidGlassPreset.FloatingControls,
+                                    ),
+                                    modifier = Modifier
+                                        .align(Alignment.CenterStart)
+                                        .size(44.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Filled.ArrowBack,
+                                        "Back to player",
+                                        modifier = Modifier.size(26.dp),
+                                    )
+                                }
                             }
                             // The Now Playing label fades after 10 s so the artwork stays clean;
                             // a new song or tab brings it back.
@@ -1989,7 +1988,10 @@ internal fun FullPlayer(
                                                 )
                                                 LiquidGlassSurface(
                                                     glassModifier = Modifier.liquidGlassChrome(CircleShape, LocalLiquidGlass.current, LiquidGlassPreset.PlayerControls, interactionSource = lyricsInteraction),
-                                                    onClick = hapticClick { onPlayerLyricsChange(true) },
+                                                    onClick = hapticClick {
+                                                        lyricsFullscreen = true
+                                                        onTabChange(FullPlayerTab.LYRICS)
+                                                    },
                                                     interactionSource = lyricsInteraction,
                                                     shape = CircleShape,
                                                     color = liquidGlassContainerColor(Color.White.copy(alpha = 0.14f)),
