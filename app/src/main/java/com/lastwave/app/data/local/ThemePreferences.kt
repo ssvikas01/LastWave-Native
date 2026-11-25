@@ -1,4 +1,4 @@
-package com.lastwave.app.data.local
+﻿package com.lastwave.app.data.local
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -33,22 +33,21 @@ enum class ThemeMode(val storageValue: String) {
 }
 
 data class ThemePrefs(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val accentColor: String = "#E03030",
-    val accentLight: String = "#FF6060",
+    val themeMode: ThemeMode = ThemeMode.DARK,
+    val accentColor: String = #1A1A2E,
+    val accentLight: String = #16213E,
     val accentMode: AccentMode = AccentMode.MANUAL,
-    val amoled: Boolean = false,
-    /** iOS-style liquid-glass materials. Enabled by default. */
-    val liquidGlass: Boolean = true,
+    val amoled: Boolean = true,
+    /** iOS-style liquid-glass materials. Disabled for Vikas Music. */
+    val liquidGlass: Boolean = false,
     /** Optional compact Material 3 floating dock instead of the standard bottom tabs. */
     val md3NavBar: Boolean = false,
     /** Whether bottom navigation tabs are completely hidden. */
     val hideNavTabs: Boolean = false,
     /** Haptic feedback on taps, buttons, toggles and gestures across the app. */
-    val uiHaptics: Boolean = true,
+    val uiHaptics: Boolean = false,
     /** Dedicated LastWave Signature Theme inspired by the app logo icon (#C9FB00 & #012226). */
     val lastWaveTheme: Boolean = false,
-    val useLegacyColors: Boolean = false,
     val appIcon: AppIcon = AppIcon.DEFAULT,
 )
 
@@ -67,7 +66,6 @@ class ThemePreferences @Inject constructor(
         val HIDE_NAV_TABS = booleanPreferencesKey("lw_hideNavTabs")
         val UI_HAPTICS = booleanPreferencesKey("lw_ui_haptics")
         val LASTWAVE_THEME = booleanPreferencesKey("lw_lastwave_theme")
-        val USE_LEGACY_COLORS = booleanPreferencesKey("lw_useLegacyColors")
         val APP_ICON = stringPreferencesKey("lw_app_icon")
     }
 
@@ -85,7 +83,6 @@ class ThemePreferences @Inject constructor(
                 hideNavTabs = p.readSafely(Keys.HIDE_NAV_TABS) ?: false,
                 uiHaptics = p.readSafely(Keys.UI_HAPTICS) ?: true,
                 lastWaveTheme = p.readSafely(Keys.LASTWAVE_THEME) ?: false,
-                useLegacyColors = p.readSafely(Keys.USE_LEGACY_COLORS) ?: false,
                 appIcon = AppIcon.fromId(p.readSafely(Keys.APP_ICON)),
             )
         }
@@ -132,10 +129,6 @@ class ThemePreferences @Inject constructor(
         dataStore.edit { it[Keys.UI_HAPTICS] = enabled }
     }
 
-    suspend fun setLegacyColors(enabled: Boolean) {
-        dataStore.edit { it[Keys.USE_LEGACY_COLORS] = enabled }
-    }
-
     suspend fun setLastWaveTheme(enabled: Boolean) {
         dataStore.edit {
             it[Keys.LASTWAVE_THEME] = enabled
@@ -151,3 +144,4 @@ class ThemePreferences @Inject constructor(
         dataStore.edit { it[Keys.APP_ICON] = icon.id }
     }
 }
+
