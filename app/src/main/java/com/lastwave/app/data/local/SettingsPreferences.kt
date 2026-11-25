@@ -1,4 +1,4 @@
-﻿package com.lastwave.app.data.local
+package com.lastwave.app.data.local
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -15,13 +15,17 @@ import com.lastwave.app.playback.haptics.MusicHapticsEngineMode
 import com.lastwave.app.playback.haptics.MusicHapticsIntensity
 import com.lastwave.app.playback.haptics.MusicHapticsMode
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.lastwave.app.ui.player.LyricsStyle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -49,7 +53,7 @@ data class CacheClearHistory(
  *  it is tried first and the app falls through to the rest automatically
  *  when it returns nothing. AUTO keeps the legacy behavior (race the
  *  word-sync providers, LRCLIB line-sync fallback). Provider names are
- *  proper nouns â€” no localization needed. */
+ *  proper nouns — no localization needed. */
 enum class LyricsProvider(val id: String, val title: String, val subtitle: String) {
     AUTO("auto", "Auto", "Fastest word-sync wins, LRCLIB fallback"),
     LASTWAVE("lastwave", "LastWave", "Syllable & line-synced Apple lyrics first"),
@@ -100,6 +104,23 @@ enum class RecommendationSource(val id: String, val titleRes: Int, val subtitleR
     }
 }
 
+/** Visual style for the player seekbar progress slider. */
+enum class SeekbarStyle(val id: String) {
+    DEFAULT("default"),
+    WAVY("wavy"),
+    WAVEFORM("waveform");
+
+    companion object {
+        fun fromId(id: String?, legacyWavyEnabled: Boolean?): SeekbarStyle {
+            if (id != null) {
+                return entries.firstOrNull { it.id == id }
+                    ?: if (legacyWavyEnabled == true) WAVY else DEFAULT
+            }
+            return if (legacyWavyEnabled == true) WAVY else DEFAULT
+        }
+    }
+}
+
 /** How a track reaches the selected streaming quality. Downgrades are always seamless. */
 enum class HiResStart(val id: String, val title: String, val subtitle: String) {
     FAST("fast", "Fast start", "Start on Opus, then switch to your quality when ready"),
@@ -120,9 +141,9 @@ data class MiscSettings(
      *  currently-scrobbling track's artwork (Home's "now playing" track),
      *  updating live as that track changes. Falls back to the user's
      *  regular selected accent whenever nothing is playing or artwork
-     *  colors can't be extracted â€” see ThemeRepository.updateNowPlayingArtwork. */
+     *  colors can't be extracted — see ThemeRepository.updateNowPlayingArtwork. */
     val dynamicNowPlayingEnabled: Boolean = false,
-    /** "Use Application Font" â€” on: the bundled Google Sans Flex variable
+    /** "Use Application Font" — on: the bundled Google Sans Flex variable
      *  font (see ui/theme/Type.kt); off: the device's own system font.
      *  Defaults on so the app ships with its own identity out of the box. */
     val useCustomFont: Boolean = true,
@@ -132,7 +153,7 @@ data class MiscSettings(
     val collapsingNavBar: Boolean = true,
     /** Last.fm usernames pinned to the top of Home's friend-switcher sheet
      *  (long-press a friend row to toggle). Order among pinned friends
-     *  follows whatever order user.getfriends itself returns them in â€”
+     *  follows whatever order user.getfriends itself returns them in —
      *  just filtered to the front, not independently reorderable. */
     val pinnedFriends: Set<String> = emptySet(),
     /** When true, the player attempts to resolve and stream lossless / Hi-Res audio
@@ -180,25 +201,33 @@ data class MiscSettings(
     /** Scale factor applied to lyrics font size across both modern and classic views.
      *  Default 1.0f (100%), clamped between 0.7f (70%) and 1.5f (150%). */
     val lyricsFontScale: Float = 1.0f,
+    /** Synced and plain lyrics centred instead of following each row's singer side. */
+    val lyricsCentered: Boolean = false,
     /** Blend the end of one queued track into the beginning of the next. */
     val crossfadeEnabled: Boolean = false,
     /** When the queue runs out, keep playing similar songs (radio). Off = stop at the end. */
     val autoplaySimilarEnabled: Boolean = true,
     /** Crossfade length in seconds; kept within the native settings slider range. */
     val crossfadeSeconds: Int = 5,
-    /** Animated wavy seekbar in the player; off by default (classic slider). */
-    val wavySeekbarEnabled: Boolean = false,
+    /** Player seekbar visual style (Default, Wavy, Waveform). */
+    val lyricsStyle: LyricsStyle = LyricsStyle.DEFAULT,
+    val seekbarStyle: SeekbarStyle = SeekbarStyle.DEFAULT,
+    /** Animated wavy seekbar in the player (kept for backward compatibility). */
+    val wavySeekbarEnabled: Boolean = (seekbarStyle == SeekbarStyle.WAVY),
     val rotatingBackgroundEnabled: Boolean = true,
     /** When true, animates fluid rotating artwork in the lyrics background.
      *  When false (default), uses static blurred artwork background in the lyrics view. */
     val lyricsRotatingBackgroundEnabled: Boolean = false,
+    /** When true (default), fluid background motion dynamically surges and pulses to musical beats.
+     *  When false, fluid background moves at a steady constant speed. */
+    val fluidBeatSyncEnabled: Boolean = false,
     /** When true, keeps the screen from turning off when the user has the lyrics view open. */
     val keepLyricsScreenAwake: Boolean = false,
     /** Seconds of inactivity before the floating lyrics buttons (font size,
      *  fullscreen) fade out on the Lyrics screen; 0 = Never. Default 5. */
     val lyricsButtonsAutoHideSeconds: Int = 5,
     /** Language the lyric translate button turns songs into, spelled as the
-     *  translation service expects ("fr", "ja", "zh-TW"â€¦). Blank = follow the
+     *  translation service expects ("fr", "ja", "zh-TW"…). Blank = follow the
      *  app language. */
     val translationLanguage: String = "",
     /** When true (default), downloads fetch and save synced lyrics (.lrc companion files and embedded tags). */
@@ -257,6 +286,7 @@ data class MiscSettings(
      *  tears down the playback service. When false, playback keeps running in
      *  the background after the task is removed. */
     val stopPlaybackOnTaskRemoved: Boolean = false,
+    val pauseOnZeroVolume: Boolean = false,
     val suppressYouTubeLoginPrompt: Boolean = false,
     val hasDismissedJoinSupportPrompt: Boolean = false,
     /** Display name used in LastWave Jam sessions. */
@@ -271,7 +301,14 @@ data class MiscSettings(
     val musicHapticsIntensity: MusicHapticsIntensity = MusicHapticsIntensity.MEDIUM,
     val musicHapticsEngineMode: MusicHapticsEngineMode = MusicHapticsEngineMode.AUTO,
     val musicHapticsPauseOnBatterySaver: Boolean = true,
-)
+    /** When true, uses the classic card-based 3-dots song menu instead of the redesigned layout. */
+    val useLegacyTrackMenu: Boolean = false,
+    /** When true, enables blur effect behind and around song options menus. */
+    val useMenuBlur: Boolean = true,
+) {
+    val enabledHttpAddons: List<HttpAddonConfig>
+        get() = httpAddons.filter { it.enabled && it.url.isNotBlank() }
+}
 
 val MiscSettings.musicHapticsConfig: MusicHapticsConfig
     get() = MusicHapticsConfig(
@@ -283,7 +320,7 @@ val MiscSettings.musicHapticsConfig: MusicHapticsConfig
     )
 
 val DEFAULT_SECTION_ORDER: List<String> = listOf(
-    // Vikas Music: Library-focused clean feed - no junk
+    // Vikas Music: Clean Library-first feed
     "yt:From your library",
     "quick_picks",
     "yt:Listen again",
@@ -372,7 +409,7 @@ fun sanitizeLyricsButtonsAutoHideSeconds(raw: Int?): Int = when {
 }
 
 /** Small dedicated prefs object for settings that don't fit ThemePreferences
- *  or SessionPreferences semantically â€” shares the app's single DataStore. */
+ *  or SessionPreferences semantically — shares the app's single DataStore. */
 @Singleton
 class SettingsPreferences @Inject constructor(
     private val dataStore: DataStore<Preferences>,
@@ -403,14 +440,18 @@ class SettingsPreferences @Inject constructor(
         val SPOTIFY_PLAYLISTS_SYNC_ENABLED = booleanPreferencesKey("lw_spotify_playlists_sync_enabled")
         val LYRICS_OFFSET_MS = longPreferencesKey("lw_lyrics_offset_ms")
         val LYRICS_FONT_SCALE = floatPreferencesKey("lw_lyrics_font_scale")
+        val LYRICS_CENTERED = booleanPreferencesKey("lw_lyrics_centered")
         val APP_VOLUME = floatPreferencesKey("lw_app_volume")
         val APP_VOLUME_CAST_FIX_DONE = booleanPreferencesKey("lw_app_volume_cast_fix_done")
         val CROSSFADE_ENABLED = booleanPreferencesKey("lw_crossfade_enabled")
         val AUTOPLAY_SIMILAR_ENABLED = booleanPreferencesKey("lw_autoplay_similar_enabled")
         val CROSSFADE_SECONDS = intPreferencesKey("lw_crossfade_seconds")
+        val LYRICS_STYLE = stringPreferencesKey("lw_lyrics_style")
+        val SEEKBAR_STYLE = stringPreferencesKey("lw_seekbar_style")
         val WAVY_SEEKBAR_ENABLED = booleanPreferencesKey("lw_wavy_seekbar_enabled")
         val ROTATING_BACKGROUND_ENABLED = booleanPreferencesKey("lw_rotating_background_enabled")
         val LYRICS_ROTATING_BACKGROUND_ENABLED = booleanPreferencesKey("lw_lyrics_rotating_background_enabled")
+        val FLUID_BEAT_SYNC_ENABLED = booleanPreferencesKey("lw_fluid_beat_sync_enabled")
         val KEEP_LYRICS_SCREEN_AWAKE = booleanPreferencesKey("lw_keep_lyrics_screen_awake")
         val LYRICS_BUTTONS_AUTO_HIDE_SECONDS = intPreferencesKey("lw_lyrics_buttons_auto_hide_seconds")
         val TRANSLATION_LANGUAGE = stringPreferencesKey("lw_translation_language")
@@ -447,6 +488,7 @@ class SettingsPreferences @Inject constructor(
         val LIKED_SONGS_LOCAL_ONLY = stringPreferencesKey("lw_liked_songs_local_only")
         val PODCASTS_ENABLED = booleanPreferencesKey("lw_podcasts_enabled")
         val STOP_PLAYBACK_ON_TASK_REMOVED = booleanPreferencesKey("lw_stop_playback_on_task_removed")
+        val PAUSE_ON_ZERO_VOLUME = booleanPreferencesKey("lw_pause_on_zero_volume")
         val SUPPRESS_YOUTUBE_LOGIN_PROMPT = booleanPreferencesKey("lw_suppress_youtube_login_prompt")
         val HAS_DISMISSED_JOIN_SUPPORT_PROMPT = booleanPreferencesKey("lw_has_dismissed_join_support_prompt")
         val JAM_DISPLAY_NAME = stringPreferencesKey("lw_jam_display_name")
@@ -457,6 +499,8 @@ class SettingsPreferences @Inject constructor(
         val MUSIC_HAPTICS_INTENSITY = stringPreferencesKey("lw_music_haptics_intensity")
         val MUSIC_HAPTICS_ENGINE_MODE = stringPreferencesKey("lw_music_haptics_engine_mode")
         val MUSIC_HAPTICS_BATTERY_SAVER = booleanPreferencesKey("lw_music_haptics_battery_saver")
+        val USE_LEGACY_TRACK_MENU = booleanPreferencesKey("lw_use_legacy_track_menu")
+        val USE_MENU_BLUR = booleanPreferencesKey("lw_use_menu_blur")
     }
 
     val settings: Flow<MiscSettings> = dataStore.data
@@ -520,12 +564,16 @@ class SettingsPreferences @Inject constructor(
                 spotifyPlaylistsSyncEnabled = p.readSafely(Keys.SPOTIFY_PLAYLISTS_SYNC_ENABLED) ?: false,
                 lyricsOffsetMs = (p.readSafely(Keys.LYRICS_OFFSET_MS) ?: 0L).coerceIn(-10000L, 10000L),
                 lyricsFontScale = (p.readSafely(Keys.LYRICS_FONT_SCALE) ?: 1.0f).coerceIn(0.7f, 1.5f),
+                lyricsCentered = p.readSafely(Keys.LYRICS_CENTERED) ?: false,
                 crossfadeEnabled = p.readSafely(Keys.CROSSFADE_ENABLED) ?: false,
                 autoplaySimilarEnabled = p.readSafely(Keys.AUTOPLAY_SIMILAR_ENABLED) ?: true,
                 crossfadeSeconds = (p.readSafely(Keys.CROSSFADE_SECONDS) ?: 5).coerceIn(1, 12),
-                wavySeekbarEnabled = p.readSafely(Keys.WAVY_SEEKBAR_ENABLED) ?: false,
+                lyricsStyle = LyricsStyle.fromId(p.readSafely(Keys.LYRICS_STYLE)),
+                seekbarStyle = SeekbarStyle.fromId(p.readSafely(Keys.SEEKBAR_STYLE), p.readSafely(Keys.WAVY_SEEKBAR_ENABLED)),
+                wavySeekbarEnabled = SeekbarStyle.fromId(p.readSafely(Keys.SEEKBAR_STYLE), p.readSafely(Keys.WAVY_SEEKBAR_ENABLED)) == SeekbarStyle.WAVY,
                 rotatingBackgroundEnabled = p.readSafely(Keys.ROTATING_BACKGROUND_ENABLED) ?: true,
                 lyricsRotatingBackgroundEnabled = p.readSafely(Keys.LYRICS_ROTATING_BACKGROUND_ENABLED) ?: false,
+                fluidBeatSyncEnabled = p.readSafely(Keys.FLUID_BEAT_SYNC_ENABLED) ?: false,
                 keepLyricsScreenAwake = p.readSafely(Keys.KEEP_LYRICS_SCREEN_AWAKE) ?: false,
                 lyricsButtonsAutoHideSeconds =
                     sanitizeLyricsButtonsAutoHideSeconds(p.readSafely(Keys.LYRICS_BUTTONS_AUTO_HIDE_SECONDS)),
@@ -555,6 +603,7 @@ class SettingsPreferences @Inject constructor(
                 canvasOverCellular = p.readSafely(Keys.CANVAS_OVER_CELLULAR) ?: true,
                 podcastsEnabled = p.readSafely(Keys.PODCASTS_ENABLED) ?: true,
                 stopPlaybackOnTaskRemoved = p.readSafely(Keys.STOP_PLAYBACK_ON_TASK_REMOVED) ?: false,
+                pauseOnZeroVolume = p.readSafely(Keys.PAUSE_ON_ZERO_VOLUME) ?: false,
                 suppressYouTubeLoginPrompt = p.readSafely(Keys.SUPPRESS_YOUTUBE_LOGIN_PROMPT) ?: false,
                 hasDismissedJoinSupportPrompt = p.readSafely(Keys.HAS_DISMISSED_JOIN_SUPPORT_PROMPT) ?: false,
                 jamDisplayName = p.readSafely(Keys.JAM_DISPLAY_NAME)?.trim().orEmpty(),
@@ -570,8 +619,16 @@ class SettingsPreferences @Inject constructor(
                 musicHapticsIntensity = MusicHapticsIntensity.fromName(p.readSafely(Keys.MUSIC_HAPTICS_INTENSITY)),
                 musicHapticsEngineMode = MusicHapticsEngineMode.fromName(p.readSafely(Keys.MUSIC_HAPTICS_ENGINE_MODE)),
                 musicHapticsPauseOnBatterySaver = p.readSafely(Keys.MUSIC_HAPTICS_BATTERY_SAVER) ?: true,
+                useLegacyTrackMenu = p.readSafely(Keys.USE_LEGACY_TRACK_MENU) ?: false,
+                useMenuBlur = p.readSafely(Keys.USE_MENU_BLUR) ?: true,
             )
         }
+        // Cold, every one of ~60 collectors (mostly on Main) re-ran this mapping and
+        // its JSON parse on each write to this DataStore: 0.5 s main-thread stalls
+        // at launch. Map once per change off Main and share one value.
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
+        .shareIn(CoroutineScope(Dispatchers.Default + SupervisorJob()), SharingStarted.Eagerly, replay = 1)
 
     val storageCacheLimitMb: Flow<Int> = dataStore.data
         .recoverPreferences("SettingsPreferences")
@@ -802,6 +859,10 @@ class SettingsPreferences @Inject constructor(
         dataStore.edit { it[Keys.STOP_PLAYBACK_ON_TASK_REMOVED] = enabled }
     }
 
+    suspend fun setPauseOnZeroVolume(enabled: Boolean) {
+        dataStore.edit { it[Keys.PAUSE_ON_ZERO_VOLUME] = enabled }
+    }
+
     suspend fun setSuppressYouTubeLoginPrompt(suppress: Boolean) {
         dataStore.edit { it[Keys.SUPPRESS_YOUTUBE_LOGIN_PROMPT] = suppress }
     }
@@ -933,6 +994,10 @@ class SettingsPreferences @Inject constructor(
         dataStore.edit { it[Keys.LYRICS_FONT_SCALE] = scale.coerceIn(0.7f, 1.5f) }
     }
 
+    suspend fun setLyricsCentered(centered: Boolean) {
+        dataStore.edit { it[Keys.LYRICS_CENTERED] = centered }
+    }
+
     suspend fun setAutoplaySimilarEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.AUTOPLAY_SIMILAR_ENABLED] = enabled }
     }
@@ -947,8 +1012,19 @@ class SettingsPreferences @Inject constructor(
         dataStore.edit { it[Keys.CROSSFADE_SECONDS] = seconds.coerceIn(1, 12) }
     }
 
+    suspend fun setLyricsStyle(style: LyricsStyle) {
+        dataStore.edit { it[Keys.LYRICS_STYLE] = style.id }
+    }
+
+    suspend fun setSeekbarStyle(style: SeekbarStyle) {
+        dataStore.edit {
+            it[Keys.SEEKBAR_STYLE] = style.id
+            it[Keys.WAVY_SEEKBAR_ENABLED] = (style == SeekbarStyle.WAVY)
+        }
+    }
+
     suspend fun setWavySeekbarEnabled(enabled: Boolean) {
-        dataStore.edit { it[Keys.WAVY_SEEKBAR_ENABLED] = enabled }
+        setSeekbarStyle(if (enabled) SeekbarStyle.WAVY else SeekbarStyle.DEFAULT)
     }
 
     suspend fun setRotatingBackgroundEnabled(enabled: Boolean) {
@@ -957,6 +1033,10 @@ class SettingsPreferences @Inject constructor(
 
     suspend fun setLyricsRotatingBackgroundEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.LYRICS_ROTATING_BACKGROUND_ENABLED] = enabled }
+    }
+
+    suspend fun setFluidBeatSyncEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.FLUID_BEAT_SYNC_ENABLED] = enabled }
     }
 
     suspend fun setKeepLyricsScreenAwake(enabled: Boolean) {
@@ -1158,6 +1238,14 @@ class SettingsPreferences @Inject constructor(
     suspend fun setJamRoomMode(mode: String) {
         dataStore.edit { it[Keys.JAM_ROOM_MODE] = mode }
     }
+
+    suspend fun setLegacyTrackMenu(enabled: Boolean) {
+        dataStore.edit { it[Keys.USE_LEGACY_TRACK_MENU] = enabled }
+    }
+
+    suspend fun setMenuBlur(enabled: Boolean) {
+        dataStore.edit { it[Keys.USE_MENU_BLUR] = enabled }
+    }
     private companion object {
         val STREAMING_QUALITIES = setOf(-1, 4, 5, 6, 27, 28)
         val DOWNLOAD_QUALITIES = setOf(-1, 4, 5, 6, 7, 27, 28)
@@ -1169,5 +1257,3 @@ class SettingsPreferences @Inject constructor(
         else -> null
     }
 }
-
-
