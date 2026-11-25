@@ -63,7 +63,6 @@
     <application
         android:name=".LastWaveApplication"
         android:allowBackup="true"
-        android:hardwareAccelerated="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:appCategory="audio"
