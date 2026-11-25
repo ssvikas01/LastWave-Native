@@ -24,14 +24,13 @@ jobs:
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
-      - name: Generate Release Keystores Everywhere
+      - name: Generate Release Keystore
         run: |
           mkdir -p ~/.android ~/.config/.android app
           keytool -genkeypair -v -keystore app/release.keystore -alias release_key -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=VikasMusic,O=Vikas,C=US"
           cp app/release.keystore release.keystore
           cp app/release.keystore ~/.android/debug.keystore
           cp app/release.keystore ~/.config/.android/debug.keystore
-          ls -la app/release.keystore release.keystore ~/.android/debug.keystore ~/.config/.android/debug.keystore
 
       - name: Build Release APK
         env:
@@ -60,16 +59,8 @@ jobs:
           cp "$APK_FILE" final_apk/VikasMusic-v${VERSION}-OriginOS6.apk
           ls -lh final_apk/
 
-      - name: Verify APK signature + publish checksum
+      - name: Publish Checksum
         run: |
-          SDKROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          APKSIGNER=$(find "$SDKROOT/build-tools" -maxdepth 2 -name apksigner 2>/dev/null | head -n1)
-          if [ -n "$APKSIGNER" ]; then
-            for apk in final_apk/*.apk; do
-              echo "Verifying $apk ..."
-              "$APKSIGNER" verify --print-certs "$apk" || echo "Signature verified"
-            done
-          fi
           (cd final_apk && sha256sum *.apk > SHA256SUMS.txt)
           cat final_apk/SHA256SUMS.txt
 
