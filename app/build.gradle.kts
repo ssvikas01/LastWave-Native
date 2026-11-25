@@ -305,7 +305,7 @@ android {
             tempKeystore.writeBytes(decodedReleaseKeystoreBytes)
             tempKeystore
         }
-        storeFilePath.isNotBlank() -> file(storeFilePath)
+        storeFilePath.isNotBlank() -> { val f = file(storeFilePath); if (f.exists()) f else rootProject.file(storeFilePath) }
         else -> null
     }
 
