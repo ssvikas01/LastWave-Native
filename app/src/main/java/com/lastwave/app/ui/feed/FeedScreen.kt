@@ -1652,7 +1652,7 @@ fun FeedScreen(
                     }
                 },
             )
-            if (state.homeChips.isNotEmpty()) {
+            if (false && state.homeChips.isNotEmpty()) {
                 // Page-coloured strip so the feed scrolling under the glass
                 // never shows through around the chips (looks as before).
                 Box(
