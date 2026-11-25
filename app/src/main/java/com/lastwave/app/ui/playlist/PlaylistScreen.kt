@@ -652,6 +652,7 @@ fun PlaylistScreen(
                                                 name = track.name,
                                                 artist = track.artist,
                                                 embeddedUrl = track.artworkUrl,
+                                                fallbackIcon = Icons.Filled.MusicNote,
                                                 modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
                                             )
                                             Spacer(Modifier.width(12.dp))

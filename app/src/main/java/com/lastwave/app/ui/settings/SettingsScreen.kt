@@ -974,7 +974,7 @@ fun SettingsScreen(
                         if (misc.shakeToSkipEnabled) {
                             add { position ->
                                 Surface(
-                                    shape = com.lastwave.app.ui.common.groupShape(position),
+                                    shape = groupShape(position),
                                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
