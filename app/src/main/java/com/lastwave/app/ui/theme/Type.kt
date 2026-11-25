@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+﻿@file:OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 
 package com.lastwave.app.ui.theme
 
@@ -13,7 +13,7 @@ import com.lastwave.app.R
 
 /**
  * Google Sans Flex, bundled as a real variable font (res/font/google_sans_flex.ttf)
- * rather than looked up by device font name — every device gets the same
+ * rather than looked up by device font name â€” every device gets the same
  * look now, not just ones that happen to ship it as a system font.
  *
  * The file exposes 6 axes (checked via fonttools): wght 1-1000 (default
@@ -67,79 +67,11 @@ private fun gsFlex(
  */
 const val BOLD_FONT_BOOST = 120f
 
-private fun lyricsFamilyWithWeights(
-    boldWeight: Float,
-    extraBoldWeight: Float,
-    width: Float = 100f,
-    opticalSize: Float,
-): FontFamily = FontFamily(
-    Font(
-        R.font.google_sans_flex,
-        weight = FontWeight.Normal,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight((boldWeight - 200f).toInt().coerceIn(1, 1000)),
-            FontVariation.width(width),
-            FontVariation.Setting("ROND", 0f),
-            FontVariation.Setting("opsz", opticalSize),
-        ),
-    ),
-    Font(
-        R.font.google_sans_flex,
-        weight = FontWeight.SemiBold,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight((boldWeight - 80f).toInt().coerceIn(1, 1000)),
-            FontVariation.width(width),
-            FontVariation.Setting("ROND", 0f),
-            FontVariation.Setting("opsz", opticalSize),
-        ),
-    ),
-    Font(
-        R.font.google_sans_flex,
-        weight = FontWeight.Bold,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(boldWeight.toInt().coerceIn(1, 1000)),
-            FontVariation.width(width),
-            FontVariation.Setting("ROND", 0f),
-            FontVariation.Setting("opsz", opticalSize),
-        ),
-    ),
-    Font(
-        R.font.google_sans_flex,
-        weight = FontWeight.ExtraBold,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight(extraBoldWeight.toInt().coerceIn(1, 1000)),
-            FontVariation.width(width),
-            FontVariation.Setting("ROND", 0f),
-            FontVariation.Setting("opsz", opticalSize),
-        ),
-    ),
-    Font(
-        R.font.google_sans_flex,
-        weight = FontWeight.Black,
-        variationSettings = FontVariation.Settings(
-            FontVariation.weight((extraBoldWeight + 50f).toInt().coerceIn(1, 1000)),
-            FontVariation.width(width),
-            FontVariation.Setting("ROND", 0f),
-            FontVariation.Setting("opsz", opticalSize),
-        ),
-    ),
-)
-
-private val LyricsLeadFontFamily: FontFamily = lyricsFamilyWithWeights(boldWeight = 760f, extraBoldWeight = 850f, width = 100f, opticalSize = 40f)
-private val LyricsBackingFontFamily: FontFamily = lyricsFamilyWithWeights(boldWeight = 700f, extraBoldWeight = 780f, width = 100f, opticalSize = 24f)
+private val LyricsLeadFontFamily: FontFamily = gsFlex(weight = 760f, width = 100f, round = 0f, opticalSize = 40f)
+private val LyricsBackingFontFamily: FontFamily = gsFlex(weight = 700f, width = 100f, round = 0f, opticalSize = 24f)
 private val LyricsSubLineFontFamily: FontFamily = gsFlex(weight = 560f, width = 100f, round = 0f, opticalSize = 16f)
-private val LyricsLeadBoldFontFamily: FontFamily = lyricsFamilyWithWeights(
-    boldWeight = (760f + BOLD_FONT_BOOST).coerceAtMost(1000f),
-    extraBoldWeight = (850f + BOLD_FONT_BOOST).coerceAtMost(1000f),
-    width = 100f,
-    opticalSize = 40f,
-)
-private val LyricsBackingBoldFontFamily: FontFamily = lyricsFamilyWithWeights(
-    boldWeight = (700f + BOLD_FONT_BOOST).coerceAtMost(1000f),
-    extraBoldWeight = (780f + BOLD_FONT_BOOST).coerceAtMost(1000f),
-    width = 100f,
-    opticalSize = 24f,
-)
+private val LyricsLeadBoldFontFamily: FontFamily = gsFlex(weight = (760f + BOLD_FONT_BOOST).coerceAtMost(1000f), width = 100f, round = 0f, opticalSize = 40f)
+private val LyricsBackingBoldFontFamily: FontFamily = gsFlex(weight = (700f + BOLD_FONT_BOOST).coerceAtMost(1000f), width = 100f, round = 0f, opticalSize = 24f)
 private val LyricsSubLineBoldFontFamily: FontFamily = gsFlex(weight = (560f + BOLD_FONT_BOOST).coerceAtMost(1000f), width = 100f, round = 0f, opticalSize = 16f)
 
 fun lyricsLeadFontFamily(bold: Boolean): FontFamily = if (bold) LyricsLeadBoldFontFamily else LyricsLeadFontFamily
@@ -148,21 +80,21 @@ fun lyricsSubLineFontFamily(bold: Boolean): FontFamily = if (bold) LyricsSubLine
 
 // boost = 0 is exactly the tag 2.0 type scale; regular trims it, bold mode adds on top.
 private fun lastWaveTypography(boost: Float) = Typography(
-    displayLarge = TextStyle(fontFamily = gsFlex(weight = (760f + boost).coerceAtMost(1000f), width = 122f, round = 42f, opticalSize = 57f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 57.sp, lineHeight = 64.sp),
-    displayMedium = TextStyle(fontFamily = gsFlex(weight = (740f + boost).coerceAtMost(1000f), width = 120f, round = 40f, opticalSize = 45f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 45.sp, lineHeight = 52.sp),
-    displaySmall = TextStyle(fontFamily = gsFlex(weight = (720f + boost).coerceAtMost(1000f), width = 118f, round = 38f, opticalSize = 36f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 36.sp, lineHeight = 44.sp),
-    headlineLarge = TextStyle(fontFamily = gsFlex(weight = (800f + boost).coerceAtMost(1000f), width = 122f, round = 40f, opticalSize = 32f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 32.sp, lineHeight = 40.sp),
-    headlineMedium = TextStyle(fontFamily = gsFlex(weight = (780f + boost).coerceAtMost(1000f), width = 120f, round = 38f, opticalSize = 28f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp),
-    headlineSmall = TextStyle(fontFamily = gsFlex(weight = (760f + boost).coerceAtMost(1000f), width = 116f, round = 36f, opticalSize = 24f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 24.sp, lineHeight = 32.sp),
-    titleLarge = TextStyle(fontFamily = gsFlex(weight = (640f + boost).coerceAtMost(1000f), width = 110f, round = 30f, opticalSize = 22f), fontWeight = if (boost > 0f) FontWeight.Bold else FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
-    titleMedium = TextStyle(fontFamily = gsFlex(weight = (600f + boost).coerceAtMost(1000f), width = 106f, round = 28f, opticalSize = 16f), fontWeight = if (boost > 0f) FontWeight.Bold else FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 24.sp),
-    titleSmall = TextStyle(fontFamily = gsFlex(weight = (580f + boost).coerceAtMost(1000f), width = 105f, round = 26f, opticalSize = 14f), fontWeight = if (boost > 0f) FontWeight.SemiBold else FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
-    bodyLarge = TextStyle(fontFamily = gsFlex(weight = (440f + boost).coerceAtMost(1000f), width = 102f, round = 18f, opticalSize = 16f), fontWeight = if (boost > 0f) FontWeight.Medium else FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontFamily = gsFlex(weight = (430f + boost).coerceAtMost(1000f), width = 102f, round = 18f, opticalSize = 15f), fontWeight = if (boost > 0f) FontWeight.Medium else FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp),
-    bodySmall = TextStyle(fontFamily = gsFlex(weight = (420f + boost).coerceAtMost(1000f), width = 100f, round = 16f, opticalSize = 13f), fontWeight = if (boost > 0f) FontWeight.Medium else FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp),
-    labelLarge = TextStyle(fontFamily = gsFlex(weight = (680f + boost).coerceAtMost(1000f), width = 108f, round = 46f, opticalSize = 14f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 14.sp, lineHeight = 20.sp),
-    labelMedium = TextStyle(fontFamily = gsFlex(weight = (660f + boost).coerceAtMost(1000f), width = 108f, round = 44f, opticalSize = 12f), fontWeight = if (boost > 0f) FontWeight.Bold else FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 16.sp),
-    labelSmall = TextStyle(fontFamily = gsFlex(weight = (660f + boost).coerceAtMost(1000f), width = 108f, round = 44f, opticalSize = 11f), fontWeight = if (boost > 0f) FontWeight.Bold else FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 16.sp),
+    displayLarge = TextStyle(fontFamily = gsFlex(weight = (760f + boost).coerceAtMost(1000f), width = 122f, round = 42f, opticalSize = 57f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 52.sp, lineHeight = 58.sp),
+    displayMedium = TextStyle(fontFamily = gsFlex(weight = (740f + boost).coerceAtMost(1000f), width = 120f, round = 40f, opticalSize = 45f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 40.sp, lineHeight = 48.sp),
+    displaySmall = TextStyle(fontFamily = gsFlex(weight = (720f + boost).coerceAtMost(1000f), width = 118f, round = 38f, opticalSize = 36f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 26.sp, lineHeight = 34.sp),
+    headlineLarge = TextStyle(fontFamily = gsFlex(weight = (800f + boost).coerceAtMost(1000f), width = 122f, round = 40f, opticalSize = 32f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 26.sp, lineHeight = 34.sp),
+    headlineMedium = TextStyle(fontFamily = gsFlex(weight = (780f + boost).coerceAtMost(1000f), width = 120f, round = 38f, opticalSize = 28f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 22.sp, lineHeight = 30.sp),
+    headlineSmall = TextStyle(fontFamily = gsFlex(weight = (760f + boost).coerceAtMost(1000f), width = 116f, round = 36f, opticalSize = 24f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 20.sp, lineHeight = 28.sp),
+    titleLarge = TextStyle(fontFamily = gsFlex(weight = (640f + boost).coerceAtMost(1000f), width = 110f, round = 30f, opticalSize = 22f), fontWeight = if (boost > 0f) FontWeight.Bold else FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp),
+    titleMedium = TextStyle(fontFamily = gsFlex(weight = (600f + boost).coerceAtMost(1000f), width = 106f, round = 28f, opticalSize = 16f), fontWeight = if (boost > 0f) FontWeight.Bold else FontWeight.SemiBold, fontSize = 10.sp, lineHeight = 14.sp),
+    titleSmall = TextStyle(fontFamily = gsFlex(weight = (580f + boost).coerceAtMost(1000f), width = 105f, round = 26f, opticalSize = 14f), fontWeight = if (boost > 0f) FontWeight.SemiBold else FontWeight.Medium, fontSize = 10.sp, lineHeight = 14.sp),
+    bodyLarge = TextStyle(fontFamily = gsFlex(weight = (440f + boost).coerceAtMost(1000f), width = 102f, round = 18f, opticalSize = 16f), fontWeight = if (boost > 0f) FontWeight.Medium else FontWeight.Normal, fontSize = 10.sp, lineHeight = 14.sp),
+    bodyMedium = TextStyle(fontFamily = gsFlex(weight = (430f + boost).coerceAtMost(1000f), width = 102f, round = 18f, opticalSize = 15f), fontWeight = if (boost > 0f) FontWeight.Medium else FontWeight.Normal, fontSize = 10.sp, lineHeight = 14.sp),
+    bodySmall = TextStyle(fontFamily = gsFlex(weight = (420f + boost).coerceAtMost(1000f), width = 100f, round = 16f, opticalSize = 13f), fontWeight = if (boost > 0f) FontWeight.Medium else FontWeight.Normal, fontSize = 10.sp, lineHeight = 14.sp),
+    labelLarge = TextStyle(fontFamily = gsFlex(weight = (680f + boost).coerceAtMost(1000f), width = 108f, round = 46f, opticalSize = 14f), fontWeight = if (boost > 0f) FontWeight.ExtraBold else FontWeight.Bold, fontSize = 10.sp, lineHeight = 14.sp),
+    labelMedium = TextStyle(fontFamily = gsFlex(weight = (660f + boost).coerceAtMost(1000f), width = 108f, round = 44f, opticalSize = 12f), fontWeight = if (boost > 0f) FontWeight.Bold else FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 15.sp),
+    labelSmall = TextStyle(fontFamily = gsFlex(weight = (660f + boost).coerceAtMost(1000f), width = 108f, round = 44f, opticalSize = 11f), fontWeight = if (boost > 0f) FontWeight.Bold else FontWeight.SemiBold, fontSize = 10.sp, lineHeight = 14.sp),
 )
 
 // Regular app font sits a little lighter than the 2.0 values (wght axis); bold mode is unchanged.
@@ -182,21 +114,21 @@ val LastWaveThinTypography = LastWaveTypography
  * turning the toggle off changes ONLY the typeface, not the whole scale.
  */
 val SystemTypography = Typography(
-    displayLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 57.sp, lineHeight = 64.sp),
-    displayMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 45.sp, lineHeight = 52.sp),
-    displaySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 36.sp, lineHeight = 44.sp),
-    headlineLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 40.sp),
-    headlineMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp),
-    headlineSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 32.sp),
-    titleLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 22.sp, lineHeight = 28.sp),
-    titleMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 24.sp),
-    titleSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
-    bodyLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp),
-    bodySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp),
-    labelLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
-    labelMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
-    labelSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp),
+    displayLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 52.sp, lineHeight = 58.sp),
+    displayMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 40.sp, lineHeight = 48.sp),
+    displaySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 26.sp, lineHeight = 34.sp),
+    headlineLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 34.sp),
+    headlineMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 30.sp),
+    headlineSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 28.sp),
+    titleLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 18.sp, lineHeight = 24.sp),
+    titleMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 10.sp, lineHeight = 14.sp),
+    titleSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 10.sp, lineHeight = 14.sp),
+    bodyLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 10.sp, lineHeight = 14.sp),
+    bodyMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 10.sp, lineHeight = 14.sp),
+    bodySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Normal, fontSize = 10.sp, lineHeight = 14.sp),
+    labelLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, lineHeight = 14.sp),
+    labelMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 15.sp),
+    labelSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 10.sp, lineHeight = 14.sp),
 )
 
 /**
@@ -204,19 +136,20 @@ val SystemTypography = Typography(
  * thickens the platform default font family across all Material 3 tiers.
  */
 val SystemBoldTypography = Typography(
-    displayLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 57.sp, lineHeight = 64.sp),
-    displayMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 45.sp, lineHeight = 52.sp),
-    displaySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 44.sp),
-    headlineLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.ExtraBold, fontSize = 32.sp, lineHeight = 40.sp),
-    headlineMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, lineHeight = 36.sp),
-    headlineSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 32.sp),
-    titleLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp),
-    titleMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 24.sp),
-    titleSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
-    bodyLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 15.sp, lineHeight = 22.sp),
-    bodySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 18.sp),
-    labelLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 20.sp),
-    labelMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 12.sp, lineHeight = 16.sp),
-    labelSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 11.sp, lineHeight = 16.sp),
+    displayLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 52.sp, lineHeight = 58.sp),
+    displayMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 40.sp, lineHeight = 48.sp),
+    displaySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 34.sp),
+    headlineLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp, lineHeight = 34.sp),
+    headlineMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, lineHeight = 30.sp),
+    headlineSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 28.sp),
+    titleLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 18.sp, lineHeight = 24.sp),
+    titleMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 10.sp, lineHeight = 14.sp),
+    titleSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.SemiBold, fontSize = 10.sp, lineHeight = 14.sp),
+    bodyLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 10.sp, lineHeight = 14.sp),
+    bodyMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 10.sp, lineHeight = 14.sp),
+    bodySmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 10.sp, lineHeight = 14.sp),
+    labelLarge = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 10.sp, lineHeight = 14.sp),
+    labelMedium = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 11.sp, lineHeight = 15.sp),
+    labelSmall = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold, fontSize = 10.sp, lineHeight = 14.sp),
 )
+
