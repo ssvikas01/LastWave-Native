@@ -1598,6 +1598,276 @@ class InnerTubeMusicApi @Inject constructor(
     suspend fun searchArtists(query: String, limit: Int = 30): List<YouTubeMusicEntity> =
         searchEntities(query, YouTubeMusicEntityKind.ARTIST, ARTIST_SEARCH_FILTER, limit)
 
+    /**
+     * Unified intent-aware search: queries YouTube Music without type filters
+     * so Google's entity classifier returns the primary Top Result card
+     * (Artist, Album, Playlist, or Track) and organizes the results accordingly.
+     */
+    suspend fun smartSearch(query: String): List<SmartSearchItem> = withContext(Dispatchers.IO) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return@withContext emptyList()
+        val config = getWebConfig()
+        val root = runCatching {
+            post(
+                url = "$MUSIC_API/search?key=${config.apiKey}&prettyPrint=false",
+                body = buildJsonObject {
+                    put("context", context("WEB_REMIX", config.clientVersion, config.visitorData))
+                    put("query", trimmed)
+                },
+                clientName = "WEB_REMIX",
+                clientVersion = config.clientVersion,
+                userAgent = WEB_USER_AGENT,
+                callTimeoutMs = SEARCH_REQUEST_TIMEOUT_MS,
+            )
+        }.getOrNull() ?: return@withContext emptyList()
+
+        val cardRenderers = mutableListOf<JsonObject>()
+        collectObjects(root, "musicCardShelfRenderer", cardRenderers)
+        val topCard = cardRenderers.firstOrNull()
+
+        if (topCard != null) {
+            val cardTitle = topCard.obj("title")?.array("runs")
+                ?.joinToString("") { it.asObject()?.string("text").orEmpty() }
+                ?.trim()?.takeIf(String::isNotBlank)
+                ?: topCard.obj("title")?.string("simpleText")?.trim().orEmpty()
+
+            val subRuns = topCard.obj("subtitle")?.array("runs")?.mapNotNull { it.asObject() }.orEmpty()
+            val cardSubtitle = subRuns.mapNotNull { it.string("text")?.trim() }
+                .filter { it.isNotBlank() && it !in setOf("•", "·") }
+                .joinToString(" • ")
+
+            val cardArtwork = extractThumbnailsUrl(topCard)
+                ?: topCard.obj("thumbnail")?.obj("musicThumbnailRenderer")?.obj("thumbnail")?.array("thumbnails")
+                    ?.lastOrNull()?.asObject()?.string("url")?.highResolutionArtwork()
+
+            val onTap = topCard.obj("onTap")
+            val browseEp = onTap?.obj("browseEndpoint")
+                ?: topCard.obj("title")?.array("runs")?.firstOrNull()?.asObject()
+                    ?.obj("navigationEndpoint")?.obj("browseEndpoint")
+            val browseId = browseEp?.string("browseId")
+            val pageType = browseEp?.obj("browseEndpointContextSupportedConfigs")
+                ?.obj("browseEndpointContextMusicConfig")?.string("pageType")
+
+            val watchVideoId = onTap?.obj("watchEndpoint")?.string("videoId")
+                ?: directWatchVideoId(topCard)
+
+            when {
+                pageType == "MUSIC_PAGE_TYPE_ARTIST" || browseId?.startsWith("UC") == true -> {
+                    val artistHero = SmartSearchItem(
+                        kind = SmartSearchKind.ARTIST,
+                        name = cardTitle,
+                        subtitle = cardSubtitle.ifBlank { "Artist" },
+                        artworkUrl = cardArtwork,
+                        browseId = browseId,
+                    )
+                    val artistPage = browseId?.let {
+                        runCatching { fetchArtistPage(it, cardTitle, includeFullDiscography = false) }.getOrNull()
+                    }
+                    val rawAlbums = artistPage?.albums.orEmpty().ifEmpty { artistPage?.singles.orEmpty() }
+                    val albumItems = if (rawAlbums.isNotEmpty()) {
+                        rawAlbums.map { alb ->
+                            SmartSearchItem(
+                                kind = SmartSearchKind.ALBUM,
+                                name = alb.title,
+                                artist = cardTitle,
+                                subtitle = listOfNotNull(alb.type ?: "Album", alb.year).joinToString(" • "),
+                                artworkUrl = alb.artworkUrl,
+                                browseId = alb.browseId,
+                            )
+                        }
+                    } else {
+                        parseEntityRenderers(root, YouTubeMusicEntityKind.ALBUM).map { alb ->
+                            SmartSearchItem(
+                                kind = SmartSearchKind.ALBUM,
+                                name = alb.name,
+                                artist = alb.artist ?: cardTitle,
+                                subtitle = alb.subtitle ?: "Album",
+                                artworkUrl = alb.artworkUrl,
+                                browseId = alb.browseId,
+                            )
+                        }
+                    }
+                    if (cardTitle.isNotBlank()) {
+                        return@withContext listOf(artistHero) + albumItems
+                    }
+                }
+
+                pageType == "MUSIC_PAGE_TYPE_ALBUM" || browseId?.startsWith("MPRE") == true -> {
+                    val artistName = subRuns.firstOrNull { run ->
+                        run.obj("navigationEndpoint")?.obj("browseEndpoint")?.string("browseId")?.startsWith("UC") == true
+                    }?.string("text") ?: subRuns.mapNotNull { it.string("text") }.firstOrNull { it.isLikelyArtistDetail() }
+
+                    val albumPage = browseId?.let {
+                        runCatching { fetchAlbumPage(it, cardTitle, artistName.orEmpty()) }.getOrNull()
+                    }
+                    val previewTracks = albumPage?.tracks.orEmpty().take(5).mapNotNull { t ->
+                        val vid = t.videoId?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                        YouTubeMusicTrack(
+                            videoId = vid,
+                            title = t.title,
+                            artist = t.artist.ifBlank { artistName.orEmpty() },
+                            album = cardTitle,
+                            artworkUrl = t.artworkUrl ?: cardArtwork ?: albumPage?.artworkUrl,
+                            durationSeconds = t.durationMs?.div(1000L)?.toInt(),
+                        )
+                    }
+                    val albumHero = SmartSearchItem(
+                        kind = SmartSearchKind.ALBUM,
+                        name = cardTitle,
+                        artist = artistName ?: albumPage?.artist,
+                        subtitle = cardSubtitle.ifBlank { "Album" },
+                        artworkUrl = cardArtwork ?: albumPage?.artworkUrl,
+                        browseId = browseId,
+                        previewTracks = previewTracks,
+                    )
+                    val otherAlbums = parseEntityRenderers(root, YouTubeMusicEntityKind.ALBUM)
+                        .filter { it.browseId != browseId }
+                        .map { alb ->
+                            SmartSearchItem(
+                                kind = SmartSearchKind.ALBUM,
+                                name = alb.name,
+                                artist = alb.artist,
+                                subtitle = alb.subtitle ?: "Album",
+                                artworkUrl = alb.artworkUrl,
+                                browseId = alb.browseId,
+                            )
+                        }
+                    if (cardTitle.isNotBlank()) {
+                        return@withContext listOf(albumHero) + otherAlbums
+                    }
+                }
+
+                pageType == "MUSIC_PAGE_TYPE_PLAYLIST" || browseId?.startsWith("VL") == true -> {
+                    val playlistHero = SmartSearchItem(
+                        kind = SmartSearchKind.PLAYLIST,
+                        name = cardTitle,
+                        subtitle = cardSubtitle.ifBlank { "Playlist" },
+                        artworkUrl = cardArtwork,
+                        browseId = browseId,
+                    )
+                    val songs = parseSongRenderers(root).map { t ->
+                        SmartSearchItem(
+                            kind = SmartSearchKind.TRACK,
+                            name = t.title,
+                            artist = t.artist,
+                            subtitle = t.album,
+                            artworkUrl = t.artworkUrl,
+                            videoId = t.videoId,
+                            durationSeconds = t.durationSeconds,
+                        )
+                    }
+                    if (cardTitle.isNotBlank()) {
+                        return@withContext listOf(playlistHero) + songs
+                    }
+                }
+
+                watchVideoId != null -> {
+                    val cardSong = parseCardShelfSong(topCard)
+                    val trackHero = SmartSearchItem(
+                        kind = SmartSearchKind.TRACK,
+                        name = cardSong?.title ?: cardTitle,
+                        artist = cardSong?.artist ?: subRuns.mapNotNull { it.string("text") }.firstOrNull { it.isLikelyArtistDetail() },
+                        subtitle = cardSong?.album ?: cardSubtitle,
+                        artworkUrl = cardSong?.artworkUrl ?: cardArtwork,
+                        videoId = cardSong?.videoId ?: watchVideoId,
+                        durationSeconds = cardSong?.durationSeconds,
+                    )
+                    val otherSongs = parseSongRenderers(root)
+                        .filter { it.videoId != trackHero.videoId }
+                        .map { t ->
+                            SmartSearchItem(
+                                kind = SmartSearchKind.TRACK,
+                                name = t.title,
+                                artist = t.artist,
+                                subtitle = t.album,
+                                artworkUrl = t.artworkUrl,
+                                videoId = t.videoId,
+                                durationSeconds = t.durationSeconds,
+                            )
+                        }
+                    if (trackHero.name.isNotBlank()) {
+                        return@withContext listOf(trackHero) + otherSongs
+                    }
+                }
+            }
+        }
+
+        // Fallback when YouTube Music does not return a Top Card:
+        // Check for exact artist or album match first, otherwise return song matches.
+        val artists = parseEntityRenderers(root, YouTubeMusicEntityKind.ARTIST)
+        val exactArtist = artists.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
+        if (exactArtist != null) {
+            val artistPage = runCatching { fetchArtistPage(exactArtist.browseId, exactArtist.name, includeFullDiscography = false) }.getOrNull()
+            val albums = artistPage?.albums.orEmpty().ifEmpty { artistPage?.singles.orEmpty() }
+            val hero = SmartSearchItem(
+                kind = SmartSearchKind.ARTIST,
+                name = exactArtist.name,
+                subtitle = exactArtist.subtitle ?: "Artist",
+                artworkUrl = exactArtist.artworkUrl,
+                browseId = exactArtist.browseId,
+            )
+            val albumItems = albums.map { alb ->
+                SmartSearchItem(
+                    kind = SmartSearchKind.ALBUM,
+                    name = alb.title,
+                    artist = exactArtist.name,
+                    subtitle = listOfNotNull(alb.type ?: "Album", alb.year).joinToString(" • "),
+                    artworkUrl = alb.artworkUrl,
+                    browseId = alb.browseId,
+                )
+            }
+            return@withContext listOf(hero) + albumItems
+        }
+
+        val albums = parseEntityRenderers(root, YouTubeMusicEntityKind.ALBUM)
+        val exactAlbum = albums.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
+        if (exactAlbum != null) {
+            val albumPage = runCatching { fetchAlbumPage(exactAlbum.browseId, exactAlbum.name, exactAlbum.artist.orEmpty()) }.getOrNull()
+            val previewTracks = albumPage?.tracks.orEmpty().take(5).mapNotNull { t ->
+                val vid = t.videoId?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                YouTubeMusicTrack(
+                    videoId = vid,
+                    title = t.title,
+                    artist = t.artist,
+                    album = exactAlbum.name,
+                    artworkUrl = t.artworkUrl ?: exactAlbum.artworkUrl,
+                    durationSeconds = t.durationMs?.div(1000L)?.toInt(),
+                )
+            }
+            val hero = SmartSearchItem(
+                kind = SmartSearchKind.ALBUM,
+                name = exactAlbum.name,
+                artist = exactAlbum.artist ?: albumPage?.artist,
+                subtitle = exactAlbum.subtitle ?: "Album",
+                artworkUrl = exactAlbum.artworkUrl ?: albumPage?.artworkUrl,
+                browseId = exactAlbum.browseId,
+                previewTracks = previewTracks,
+            )
+            return@withContext listOf(hero) + albums.filter { it.browseId != exactAlbum.browseId }.map { alb ->
+                SmartSearchItem(
+                    kind = SmartSearchKind.ALBUM,
+                    name = alb.name,
+                    artist = alb.artist,
+                    subtitle = alb.subtitle ?: "Album",
+                    artworkUrl = alb.artworkUrl,
+                    browseId = alb.browseId,
+                )
+            }
+        }
+
+        return@withContext parseSongRenderers(root).map { t ->
+            SmartSearchItem(
+                kind = SmartSearchKind.TRACK,
+                name = t.title,
+                artist = t.artist,
+                subtitle = t.album,
+                artworkUrl = t.artworkUrl,
+                videoId = t.videoId,
+                durationSeconds = t.durationSeconds,
+            )
+        }
+    }
+
     suspend fun searchAlbums(query: String, limit: Int = 30): List<YouTubeMusicEntity> {
         val trimmed = query.trim()
         if (trimmed.isBlank()) return emptyList()

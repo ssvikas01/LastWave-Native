@@ -10,6 +10,7 @@ import com.lastwave.app.data.playlist.PlaylistRepository
 import com.lastwave.app.data.local.SessionPreferences
 import com.lastwave.app.data.local.awaitLoadedSession
 import com.lastwave.app.data.music.InnerTubeMusicApi
+import com.lastwave.app.data.music.SmartSearchKind
 import com.lastwave.app.data.music.YouTubeMusicTrack
 import com.lastwave.app.data.network.LastFmApiService
 import com.lastwave.app.data.repository.RelatedGraphRepository
@@ -29,6 +30,8 @@ import javax.inject.Singleton
 
 enum class SearchTab { TRACKS, LOCAL, PODCASTS, ARTISTS, ALBUMS, PLAYLISTS, USERS }
 
+enum class SearchResultType { TRACK, ARTIST, ALBUM, PLAYLIST }
+
 @Immutable
 data class SearchResultItem(
     val name: String,
@@ -42,6 +45,8 @@ data class SearchResultItem(
     val durationMs: Long? = null,
     val showId: String? = null,
     val trackNumber: Int? = null,
+    val type: SearchResultType = SearchResultType.TRACK,
+    val previewTracks: List<SearchResultItem> = emptyList(),
 )
 
 /**
@@ -88,6 +93,62 @@ class SearchRepository @Inject constructor(
             if (!parsed.isNullOrEmpty()) return@withContext parsed
         }
         emptyList()
+    }
+
+    fun getCachedSmartSearch(query: String): List<SearchResultItem>? {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return null
+        val cacheKey = "SMART:${trimmed.lowercase()}"
+        return synchronized(cacheLock) { searchCache[cacheKey] }
+    }
+
+    suspend fun smartSearch(query: String): List<SearchResultItem> {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return emptyList()
+        val cacheKey = "SMART:${trimmed.lowercase()}"
+        synchronized(cacheLock) {
+            searchCache[cacheKey]?.let { return it }
+        }
+
+        val results = innerTube.smartSearch(trimmed).map { item ->
+            val mappedType = when (item.kind) {
+                SmartSearchKind.ARTIST -> SearchResultType.ARTIST
+                SmartSearchKind.ALBUM -> SearchResultType.ALBUM
+                SmartSearchKind.PLAYLIST -> SearchResultType.PLAYLIST
+                SmartSearchKind.TRACK -> SearchResultType.TRACK
+            }
+            val previews = item.previewTracks.mapIndexed { idx, t ->
+                SearchResultItem(
+                    name = t.title,
+                    artist = t.artist,
+                    artworkUrl = t.artworkUrl ?: item.artworkUrl,
+                    subtitle = item.name,
+                    videoId = t.videoId,
+                    entityId = t.videoId,
+                    durationMs = t.durationSeconds?.takeIf { it > 0 }?.times(1_000L),
+                    trackNumber = idx + 1,
+                    type = SearchResultType.TRACK,
+                )
+            }
+            SearchResultItem(
+                name = item.name,
+                artist = item.artist,
+                artworkUrl = item.artworkUrl,
+                subtitle = item.subtitle,
+                videoId = item.videoId,
+                entityId = item.browseId ?: item.videoId,
+                durationMs = item.durationSeconds?.takeIf { it > 0 }?.times(1_000L),
+                type = mappedType,
+                previewTracks = previews,
+            )
+        }.filter { it.name.isNotBlank() }
+
+        if (results.isNotEmpty()) {
+            synchronized(cacheLock) {
+                searchCache[cacheKey] = results
+            }
+        }
+        return results
     }
 
     suspend fun search(tab: SearchTab, query: String): List<SearchResultItem> {

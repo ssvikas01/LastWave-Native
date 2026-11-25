@@ -100,6 +100,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.lastwave.app.data.search.SearchResultItem
+import com.lastwave.app.data.search.SearchResultType
 import com.lastwave.app.data.search.SearchTab
 import com.lastwave.app.ui.common.ArtworkImage
 import com.lastwave.app.ui.common.ArtworkViewModel
@@ -271,11 +272,7 @@ fun SearchScreen(
                                 ) {
                                     if (state.query.isEmpty()) {
                                         Text(
-                                            text = when (state.tab) {
-                                                SearchTab.USERS -> stringResource(R.string.search_hint_users)
-                                                SearchTab.LOCAL -> stringResource(R.string.search_hint_local)
-                                                else -> stringResource(R.string.search_hint_yt)
-                                            },
+                                            text = "Search songs, albums, or artists",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.74f),
                                             maxLines = 1,
@@ -339,14 +336,6 @@ fun SearchScreen(
                         )
                     }
                 }
-
-                Spacer(Modifier.height(10.dp))
-
-                // Modern Segmented Filter Pills
-                SearchFilterPills(
-                    selectedTab = state.tab,
-                    onTabSelected = viewModel::setTab,
-                )
             }
         }
 
@@ -377,6 +366,7 @@ fun SearchScreen(
                                 isHistory = false,
                                 onClick = {
                                     focusManager.clearFocus()
+                                    viewModel.playResult(song)
                                     viewModel.executeSearch(song.name)
                                 },
                                 onInsert = { viewModel.setQuery(song.name) },
@@ -570,74 +560,92 @@ fun SearchScreen(
                                         bottom = 24.dp + LocalMiniPlayerScrollClearance.current + safeDrawingBottomPadding(),
                                     ),
                                 ) {
-                                    if (topResult != null && state.tab != SearchTab.USERS) {
-                                        val isTopPlaying = (state.tab == SearchTab.TRACKS || state.tab == SearchTab.LOCAL || state.tab == SearchTab.PODCASTS) && playbackState.isPlaying &&
+                                    if (topResult != null) {
+                                        val isTopPlaying = topResult.type == SearchResultType.TRACK && playbackState.isPlaying &&
                                             playbackState.current?.title.equals(topResult.name, ignoreCase = true) &&
                                             (topResult.artist.isNullOrBlank() || playbackState.current?.artist.equals(topResult.artist, ignoreCase = true))
 
                                         item(key = "top_result_card", contentType = "top_card") {
                                             TopResultCard(
                                                 item = topResult,
-                                                tab = state.tab,
                                                 isPlaying = isTopPlaying,
                                                 onPlay = {
-                                                    when (state.tab) {
-                                                        SearchTab.ARTISTS -> onOpenArtist(topResult.name, topResult.entityId)
-                                                        SearchTab.ALBUMS -> onOpenAlbum(topResult.name, topResult.artist.orEmpty(), topResult.entityId)
-                                                        SearchTab.PLAYLISTS -> topResult.entityId?.let(onOpenPlaylist)
-                                                        else -> viewModel.playResult(topResult)
+                                                    when (topResult.type) {
+                                                        SearchResultType.ARTIST -> onOpenArtist(topResult.name, topResult.entityId)
+                                                        SearchResultType.ALBUM -> viewModel.playResult(topResult)
+                                                        SearchResultType.PLAYLIST -> topResult.entityId?.let(onOpenPlaylist)
+                                                        SearchResultType.TRACK -> viewModel.playResult(topResult)
                                                     }
                                                 },
                                                 onLongClick = {
-                                                    if (state.tab == SearchTab.TRACKS ||
-                                                        (state.tab == SearchTab.LOCAL && topResult.entityId?.startsWith("offline_playlist:") != true)
-                                                    ) {
+                                                    if (topResult.type == SearchResultType.TRACK) {
                                                         miniTrayItem = topResult
                                                     }
                                                 },
                                             )
                                             Spacer(Modifier.height(8.dp))
                                         }
+
+                                        if (topResult.type == SearchResultType.ALBUM && topResult.previewTracks.isNotEmpty()) {
+                                            item(key = "album_inline_preview", contentType = "album_preview") {
+                                                AlbumPreviewCard(
+                                                    album = topResult,
+                                                    currentVideoId = playbackState.current?.videoId,
+                                                    isPlaying = playbackState.isPlaying,
+                                                    onTrackClick = { idx -> viewModel.playAlbumPreviewTrack(topResult, idx) },
+                                                    onOpenFullAlbum = { onOpenAlbum(topResult.name, topResult.artist.orEmpty(), topResult.entityId) },
+                                                )
+                                                Spacer(Modifier.height(10.dp))
+                                            }
+                                        }
+
+                                        if (topResult.type == SearchResultType.ARTIST && otherResults.isNotEmpty()) {
+                                            item(key = "artist_albums_header") {
+                                                Text(
+                                                    text = "Albums & Releases",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                                                )
+                                            }
+                                        }
                                     }
 
-                                    val displayResults = if (state.tab == SearchTab.USERS) state.results else otherResults
                                     itemsIndexed(
-                                        displayResults,
+                                        otherResults,
                                         key = { index, item -> "${item.entityId ?: item.url.ifBlank { "${item.name}_${item.artist.orEmpty()}" }}_$index" },
                                         contentType = { _, _ -> "search_result" },
                                     ) { _, item ->
-                                        val isItemPlaying = (state.tab == SearchTab.TRACKS || state.tab == SearchTab.LOCAL || state.tab == SearchTab.PODCASTS) && playbackState.isPlaying &&
+                                        val isItemPlaying = item.type == SearchResultType.TRACK && playbackState.isPlaying &&
                                             playbackState.current?.title.equals(item.name, ignoreCase = true) &&
                                             (item.artist.isNullOrBlank() || playbackState.current?.artist.equals(item.artist, ignoreCase = true))
 
                                         SearchResultRow(
                                             item = item,
-                                            tab = state.tab,
                                             isPlaying = isItemPlaying,
                                             onClick = {
-                                                when (state.tab) {
-                                                    SearchTab.ARTISTS -> onOpenArtist(item.name, item.entityId)
-                                                    SearchTab.ALBUMS -> onOpenAlbum(item.name, item.artist.orEmpty(), item.entityId)
-                                                    SearchTab.PLAYLISTS -> item.entityId?.let(onOpenPlaylist)
-                                                    else -> viewModel.playResult(item)
+                                                when (item.type) {
+                                                    SearchResultType.ARTIST -> onOpenArtist(item.name, item.entityId)
+                                                    SearchResultType.ALBUM -> onOpenAlbum(item.name, item.artist.orEmpty(), item.entityId)
+                                                    SearchResultType.PLAYLIST -> item.entityId?.let(onOpenPlaylist)
+                                                    SearchResultType.TRACK -> viewModel.playResult(item)
                                                 }
                                             },
                                             onLongClick = {
-                                                if (state.tab == SearchTab.TRACKS ||
-                                                    (state.tab == SearchTab.LOCAL && item.entityId?.startsWith("offline_playlist:") != true)
-                                                ) {
+                                                if (item.type == SearchResultType.TRACK) {
                                                     miniTrayItem = item
                                                 }
                                             },
                                             onMenu = {
-                                                menuPlayableTrack = if (state.tab == SearchTab.TRACKS || state.tab == SearchTab.LOCAL || state.tab == SearchTab.PODCASTS) {
-                                                    item.toPlayableTrack(podcast = state.tab == SearchTab.PODCASTS)
+                                                menuPlayableTrack = if (item.type == SearchResultType.TRACK) {
+                                                    item.toPlayableTrack(podcast = false)
                                                 } else null
-                                                menuTarget = when (state.tab) {
-                                                    SearchTab.TRACKS, SearchTab.LOCAL, SearchTab.PODCASTS -> TrackMenuTarget.Track(item.name, item.artist.orEmpty(), item.url)
-                                                    SearchTab.ARTISTS -> TrackMenuTarget.Artist(item.name, item.url)
-                                                    SearchTab.ALBUMS -> TrackMenuTarget.Album(item.name, item.artist.orEmpty(), item.url)
-                                                    SearchTab.PLAYLISTS, SearchTab.USERS -> null
+                                                menuTarget = when (item.type) {
+                                                    SearchResultType.TRACK -> TrackMenuTarget.Track(item.name, item.artist.orEmpty(), item.url)
+                                                    SearchResultType.ARTIST -> TrackMenuTarget.Artist(item.name, item.url)
+                                                    SearchResultType.ALBUM -> TrackMenuTarget.Album(item.name, item.artist.orEmpty(), item.url)
+                                                    SearchResultType.PLAYLIST -> null
                                                 }
                                             },
                                         )
@@ -687,7 +695,6 @@ fun SearchScreen(
 @Composable
 private fun TopResultCard(
     item: SearchResultItem,
-    tab: SearchTab,
     isPlaying: Boolean = false,
     onPlay: () -> Unit,
     onLongClick: (() -> Unit)? = null,
@@ -727,23 +734,16 @@ private fun TopResultCard(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val fallback = when (tab) {
-                SearchTab.TRACKS -> if (isPlaying) Icons.Filled.GraphicEq else Icons.Filled.MusicNote
-                SearchTab.LOCAL -> when {
-                    isPlaying -> Icons.Filled.GraphicEq
-                    item.entityId?.startsWith("offline_playlist:") == true -> Icons.AutoMirrored.Filled.QueueMusic
-                    else -> Icons.Filled.MusicNote
-                }
-                SearchTab.PODCASTS -> if (isPlaying) Icons.Filled.GraphicEq else Icons.Filled.Mic
-                SearchTab.ARTISTS -> Icons.Filled.Person
-                SearchTab.ALBUMS -> Icons.Filled.Album
-                SearchTab.PLAYLISTS -> Icons.AutoMirrored.Filled.QueueMusic
-                SearchTab.USERS -> Icons.Filled.Person
+            val fallback = when (item.type) {
+                SearchResultType.TRACK -> if (isPlaying) Icons.Filled.GraphicEq else Icons.Filled.MusicNote
+                SearchResultType.ARTIST -> Icons.Filled.Person
+                SearchResultType.ALBUM -> Icons.Filled.Album
+                SearchResultType.PLAYLIST -> Icons.AutoMirrored.Filled.QueueMusic
             }
             Box(
                 modifier = Modifier
                     .size(68.dp)
-                    .clip(if (tab == SearchTab.ARTISTS) CircleShape else RoundedCornerShape(6.dp)),
+                    .clip(if (item.type == SearchResultType.ARTIST) CircleShape else RoundedCornerShape(6.dp)),
             ) {
                 ArtworkImage(
                     name = item.name,
@@ -766,14 +766,11 @@ private fun TopResultCard(
                     modifier = Modifier.padding(bottom = 4.dp),
                 ) {
                     Text(
-                        when (tab) {
-                            SearchTab.TRACKS -> "TOP SONG"
-                            SearchTab.LOCAL -> "LOCAL MATCH"
-                            SearchTab.PODCASTS -> "TOP PODCAST"
-                            SearchTab.ARTISTS -> "TOP ARTIST"
-                            SearchTab.ALBUMS -> "TOP ALBUM"
-                            SearchTab.PLAYLISTS -> "TOP PLAYLIST"
-                            SearchTab.USERS -> "USER"
+                        when (item.type) {
+                            SearchResultType.TRACK -> "TOP SONG"
+                            SearchResultType.ARTIST -> "TOP ARTIST"
+                            SearchResultType.ALBUM -> "TOP ALBUM"
+                            SearchResultType.PLAYLIST -> "TOP PLAYLIST"
                         },
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.ExtraBold,
@@ -788,14 +785,11 @@ private fun TopResultCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val subtitle = when (tab) {
-                    SearchTab.TRACKS -> item.artist.orEmpty()
-                    SearchTab.LOCAL -> listOfNotNull(item.artist, item.subtitle).distinct().joinToString(" • ")
-                    SearchTab.PODCASTS -> listOfNotNull(item.artist, item.subtitle).distinct().joinToString(" • ")
-                    SearchTab.ALBUMS -> item.artist.orEmpty()
-                    SearchTab.PLAYLISTS -> item.subtitle.orEmpty()
-                    SearchTab.ARTISTS -> item.subtitle.orEmpty().ifBlank { "Artist" }
-                    SearchTab.USERS -> item.artist.orEmpty()
+                val subtitle = when (item.type) {
+                    SearchResultType.TRACK -> listOfNotNull(item.artist, item.subtitle).filter { it.isNotBlank() }.distinct().joinToString(" • ")
+                    SearchResultType.ALBUM -> listOfNotNull(item.artist, item.subtitle).filter { it.isNotBlank() }.distinct().joinToString(" • ")
+                    SearchResultType.PLAYLIST -> item.subtitle.orEmpty()
+                    SearchResultType.ARTIST -> item.subtitle.orEmpty().ifBlank { "Artist" }
                 }
                 if (subtitle.isNotBlank()) {
                         Text(
@@ -818,8 +812,8 @@ private fun TopResultCard(
                 modifier = Modifier.size(46.dp),
             ) {
                 Icon(
-                    if (tab == SearchTab.PLAYLISTS) Icons.AutoMirrored.Filled.ArrowForward else Icons.Filled.PlayArrow,
-                    contentDescription = if (tab == SearchTab.PLAYLISTS) "Open playlist" else "Play top result",
+                    if (item.type == SearchResultType.PLAYLIST || item.type == SearchResultType.ARTIST) Icons.AutoMirrored.Filled.ArrowForward else Icons.Filled.PlayArrow,
+                    contentDescription = if (item.type == SearchResultType.PLAYLIST || item.type == SearchResultType.ARTIST) "Open" else "Play top result",
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(26.dp),
                 )
@@ -993,47 +987,27 @@ private fun RecentSearchRow(
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun SearchResultRow(
     item: SearchResultItem,
-    tab: SearchTab,
     isPlaying: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    fun openLastFm(path: String) {
-        val base = item.url.ifBlank { "https://www.last.fm/user/${item.name}" }.trimEnd('/')
-        try {
-            context.startActivity(
-                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("$base$path"))
-                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-        } catch (e: Exception) { }
-    }
-
     Row(
         modifier = modifier
             .fillMaxWidth()
             .combinedClickable(
-                enabled = tab != SearchTab.USERS,
                 onClick = onClick,
-                onLongClick = if (tab == SearchTab.TRACKS || tab == SearchTab.LOCAL) onLongClick else onMenu,
+                onLongClick = if (item.type == SearchResultType.TRACK) onLongClick else onMenu,
             )
             .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val fallback = when (tab) {
-            SearchTab.TRACKS -> if (isPlaying) Icons.Filled.GraphicEq else Icons.Filled.MusicNote
-            SearchTab.LOCAL -> when {
-                isPlaying -> Icons.Filled.GraphicEq
-                item.entityId?.startsWith("offline_playlist:") == true -> Icons.AutoMirrored.Filled.QueueMusic
-                else -> Icons.Filled.MusicNote
-            }
-            SearchTab.PODCASTS -> if (isPlaying) Icons.Filled.GraphicEq else Icons.Filled.Mic
-            SearchTab.ARTISTS -> Icons.Filled.Person
-            SearchTab.ALBUMS -> Icons.Filled.Album
-            SearchTab.PLAYLISTS -> Icons.AutoMirrored.Filled.QueueMusic
-            SearchTab.USERS -> Icons.Filled.Person
+        val fallback = when (item.type) {
+            SearchResultType.TRACK -> if (isPlaying) Icons.Filled.GraphicEq else Icons.Filled.MusicNote
+            SearchResultType.ARTIST -> Icons.Filled.Person
+            SearchResultType.ALBUM -> Icons.Filled.Album
+            SearchResultType.PLAYLIST -> Icons.AutoMirrored.Filled.QueueMusic
         }
         Box(modifier = Modifier.size(48.dp)) {
             ArtworkImage(
@@ -1041,7 +1015,7 @@ private fun SearchResultRow(
                 artist = item.artist.orEmpty(),
                 embeddedUrl = item.artworkUrl,
                 fallbackIcon = fallback,
-                modifier = Modifier.fillMaxSize().clip(if (tab == SearchTab.ARTISTS || tab == SearchTab.USERS) CircleShape else RoundedCornerShape(4.dp)),
+                modifier = Modifier.fillMaxSize().clip(if (item.type == SearchResultType.ARTIST) CircleShape else RoundedCornerShape(4.dp)),
             )
             if (isPlaying) {
                 com.lastwave.app.ui.player.PlayingWaveBars(
@@ -1058,86 +1032,97 @@ private fun SearchResultRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val subtitle = when (tab) {
-                SearchTab.TRACKS -> listOfNotNull(item.artist, item.subtitle).joinToString(" \u2022 ")
-                SearchTab.LOCAL -> listOfNotNull(item.artist, item.subtitle).distinct().joinToString(" \u2022 ")
-                SearchTab.PODCASTS -> listOfNotNull(item.artist, item.subtitle).distinct().joinToString(" \u2022 ")
-                SearchTab.ALBUMS -> item.subtitle ?: item.artist.orEmpty()
-                SearchTab.PLAYLISTS -> item.subtitle.orEmpty()
-                SearchTab.ARTISTS -> item.subtitle.orEmpty()
-                SearchTab.USERS -> listOfNotNull(item.artist, item.listeners?.let { "$it scrobbles" }).joinToString(" \u2022 ")
+            val subtitle = when (item.type) {
+                SearchResultType.TRACK -> listOfNotNull(item.artist, item.subtitle).filter { it.isNotBlank() }.joinToString(" \u2022 ")
+                SearchResultType.ALBUM -> item.subtitle ?: item.artist.orEmpty()
+                SearchResultType.PLAYLIST -> item.subtitle.orEmpty()
+                SearchResultType.ARTIST -> item.subtitle.orEmpty()
             }
             if (subtitle.isNotBlank()) {
                 Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        if (tab == SearchTab.USERS) {
-            IconButton(onClick = { openLastFm("/+addfriend") }) {
-                Icon(Icons.Filled.PersonAdd, contentDescription = stringResource(R.string.search_follow_cd, item.name))
-            }
-            IconButton(onClick = { openLastFm("/+removefriend") }) {
-                Icon(Icons.Filled.PersonRemove, contentDescription = stringResource(R.string.search_unfollow_cd, item.name))
-            }
-        } else if (tab != SearchTab.PLAYLISTS && item.entityId?.startsWith("offline_playlist:") != true) {
+        if (item.type != SearchResultType.PLAYLIST) {
             com.lastwave.app.ui.common.OverflowMenuButton(onClick = onMenu)
         }
     }
 }
 
 @Composable
-private fun SearchFilterPills(
-    selectedTab: SearchTab,
-    onTabSelected: (SearchTab) -> Unit,
-    modifier: Modifier = Modifier,
+private fun AlbumPreviewCard(
+    album: SearchResultItem,
+    currentVideoId: String?,
+    isPlaying: Boolean,
+    onTrackClick: (Int) -> Unit,
+    onOpenFullAlbum: () -> Unit,
 ) {
-    val tabs = listOf(
-        SearchTab.TRACKS to R.string.search_tab_tracks,
-        SearchTab.LOCAL to R.string.search_tab_local,
-        SearchTab.PODCASTS to R.string.search_tab_podcasts,
-        SearchTab.ARTISTS to R.string.search_tab_artists,
-        SearchTab.ALBUMS to R.string.search_tab_albums,
-        SearchTab.PLAYLISTS to R.string.search_tab_playlists,
-        SearchTab.USERS to R.string.search_tab_users,
-    )
-    Row(
-        modifier = modifier
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.35f),
+        ),
+        modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 8.dp),
     ) {
-        tabs.forEach { (tab, labelRes) ->
-            val selected = selectedTab == tab
-            val interactionSource = remember { MutableInteractionSource() }
-
-            val pillBg = when {
-                selected -> MaterialTheme.colorScheme.primary
-                else -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.60f)
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            album.previewTracks.forEachIndexed { index, track ->
+                val isTrackPlaying = isPlaying && currentVideoId != null && currentVideoId == track.videoId
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onTrackClick(index) }
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "${track.trackNumber ?: (index + 1)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (isTrackPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(24.dp),
+                    )
+                    Text(
+                        text = track.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (isTrackPlaying) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isTrackPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    track.durationMs?.takeIf { it > 0 }?.let { ms ->
+                        val totalSec = ms / 1000
+                        val min = totalSec / 60
+                        val sec = totalSec % 60
+                        Text(
+                            text = "%d:%02d".format(min, sec),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
             }
-
-            val contentColor = when {
-                selected -> MaterialTheme.colorScheme.onPrimary
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
-            }
-
-            Surface(
-                shape = CircleShape,
-                color = pillBg,
+            Row(
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable(
-                        interactionSource = interactionSource,
-                        indication = null,
-                        onClick = { onTabSelected(tab) },
-                    ),
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenFullAlbum)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End,
             ) {
                 Text(
-                    text = stringResource(labelRes),
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    ),
-                    color = contentColor,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                    text = "Open full album",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }

@@ -9,6 +9,7 @@ import com.lastwave.app.data.generate.isLocalAudioPath
 import com.lastwave.app.data.search.SearchHistoryRepository
 import com.lastwave.app.data.search.SearchRepository
 import com.lastwave.app.data.search.SearchResultItem
+import com.lastwave.app.data.search.SearchResultType
 import com.lastwave.app.data.search.SearchTab
 import com.lastwave.app.playback.MediaType
 import com.lastwave.app.playback.MusicPlayer
@@ -70,8 +71,15 @@ class SearchViewModel @Inject constructor(
     }
 
     fun setQuery(query: String) {
+        val cached = if (query.isNotBlank()) repository.getCachedSmartSearch(query) else null
         _uiState.update {
-            it.copy(query = query, songSuggestions = emptyList(), isShowingSuggestions = query.isNotBlank())
+            it.copy(
+                query = query,
+                songSuggestions = cached?.filter { r -> r.type == SearchResultType.TRACK }?.take(5).orEmpty(),
+                results = cached ?: it.results,
+                status = if (cached != null) SearchStatus.RESULTS else it.status,
+                isShowingSuggestions = query.isNotBlank() && cached == null,
+            )
         }
         debounceJob?.cancel()
         suggestionsJob?.cancel()
@@ -90,6 +98,11 @@ class SearchViewModel @Inject constructor(
             return
         }
 
+        if (cached != null) {
+            lastIssuedQuery = query.trim()
+            return
+        }
+
         // Fast suggestions debounce (120ms)
         suggestionsJob = viewModelScope.launch {
             delay(120)
@@ -99,9 +112,9 @@ class SearchViewModel @Inject constructor(
             }
         }
 
-        // Full search results debounce (350ms)
+        // Fast smart search debounce (200ms)
         debounceJob = viewModelScope.launch {
-            delay(350)
+            delay(200)
             triggerSearch(query, saveToHistory = false)
         }
     }
@@ -128,28 +141,43 @@ class SearchViewModel @Inject constructor(
     fun searchNow() {
         val q = _uiState.value.query
         if (q.isBlank()) return
-        executeSearch(q)
+        executeSearch(q, autoPlayTop = true)
     }
 
-    fun executeSearch(query: String) {
+    fun executeSearch(query: String, autoPlayTop: Boolean = false) {
         val trimmed = query.trim()
         if (trimmed.isBlank()) return
         debounceJob?.cancel()
         suggestionsJob?.cancel()
         historyRepository.add(trimmed)
+
+        val currentState = _uiState.value
+        if (autoPlayTop &&
+            currentState.query.trim().equals(trimmed, ignoreCase = true) &&
+            currentState.status == SearchStatus.RESULTS &&
+            currentState.results.isNotEmpty()
+        ) {
+            _uiState.update { it.copy(query = trimmed, isShowingSuggestions = false) }
+            val top = currentState.results.first()
+            if (top.type == SearchResultType.TRACK || top.type == SearchResultType.ALBUM) {
+                playResult(top)
+            }
+            return
+        }
+
         _uiState.update {
             it.copy(
                 query = trimmed,
                 isShowingSuggestions = false,
             )
         }
-        triggerSearch(trimmed, saveToHistory = true)
+        triggerSearch(trimmed, saveToHistory = true, autoPlayTop = autoPlayTop)
     }
 
-    private fun triggerSearch(query: String, saveToHistory: Boolean) {
+    private fun triggerSearch(query: String, saveToHistory: Boolean, autoPlayTop: Boolean = false) {
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            runSearch(query, saveToHistory)
+            runSearch(query, saveToHistory, autoPlayTop)
         }
     }
 
@@ -165,101 +193,75 @@ class SearchViewModel @Inject constructor(
         _uiState.update { it.copy(isShowingSuggestions = false) }
     }
 
+    fun playAlbumPreviewTrack(album: SearchResultItem, trackIndex: Int) {
+        val previews = album.previewTracks
+        if (previews.isEmpty()) return
+        musicPlayer.playQueue(
+            tracks = previews.map { it.toPlayableTrack() },
+            startIndex = trackIndex.coerceIn(0, previews.lastIndex),
+            sourceLabel = album.name,
+            enableRadioContinuation = true,
+        )
+    }
+
     fun playResult(item: SearchResultItem) {
         searchQueueJob?.cancel()
-        val tab = _uiState.value.tab
-        when (tab) {
-            SearchTab.TRACKS -> {
+        when (item.type) {
+            SearchResultType.TRACK -> {
                 val selected = item.toPlayableTrack()
                 // Start immediately. Similar song radio queue loads and extends infinitely.
                 musicPlayer.play(selected, sourceLabel = "Search", startRadio = true)
             }
-            SearchTab.LOCAL -> {
-                val id = item.entityId
-                if (id != null && id.startsWith("offline_playlist:")) {
-                    val plId = id.removePrefix("offline_playlist:")
-                    viewModelScope.launch {
-                        val tracks = repository.localTracksForOfflinePlaylist(plId)
-                        if (tracks.isNotEmpty()) {
-                            musicPlayer.playQueue(
-                                tracks = tracks.map { t ->
-                                    PlayableTrack(
-                                        title = t.name,
-                                        artist = t.artist,
-                                        album = t.album,
-                                        artworkUrl = t.artworkUrl,
-                                        playbackUrl = t.url,
-                                        playbackMimeType = LocalAudioFormats.mimeFor(t.url),
-                                        durationMs = t.durationMs,
-                                        trackNumber = t.trackNumber,
-                                    )
-                                },
-                                startIndex = 0,
-                                sourceLabel = item.name,
-                                enableRadioContinuation = false,
-                            )
-                        }
-                    }
-                } else {
-                    val localItems = _uiState.value.results.filter { isLocalAudioPath(it.url) }
-                    val targetIdx = localItems.indexOfFirst { it.url == item.url }.coerceAtLeast(0)
-                    val queue = if (localItems.isNotEmpty()) localItems else listOf(item)
-                    musicPlayer.playQueue(
-                        tracks = queue.map { it.toPlayableTrack() },
-                        startIndex = targetIdx,
-                        sourceLabel = "Local Search",
-                        enableRadioContinuation = false,
-                    )
-                }
-            }
-            SearchTab.ARTISTS, SearchTab.ALBUMS -> viewModelScope.launch {
+            SearchResultType.ARTIST, SearchResultType.ALBUM -> viewModelScope.launch {
                 val tracks = runCatching { repository.songsFor(item) }.getOrDefault(emptyList())
                 if (tracks.isNotEmpty()) {
                     musicPlayer.playQueue(tracks.map { track ->
                         PlayableTrack(
                             title = track.title,
                             artist = track.artist.takeUnless { it == "Unknown artist" } ?: item.artist ?: item.name,
-                            album = track.album ?: if (tab == SearchTab.ALBUMS) item.name else null,
+                            album = track.album ?: if (item.type == SearchResultType.ALBUM) item.name else null,
                             artworkUrl = track.artworkUrl ?: item.artworkUrl,
                             videoId = track.videoId,
                             durationMs = track.durationSeconds?.takeIf { it > 0 }?.times(1_000L),
                         )
-                    }, sourceLabel = "Search")
+                    }, sourceLabel = item.name)
                 }
             }
-            SearchTab.PODCASTS -> {
-                val selected = item.toPlayableTrack(podcast = true)
-                musicPlayer.playPodcastQueue(listOf(selected), startIndex = 0, sourceLabel = "Search")
-            }
-            SearchTab.PLAYLISTS, SearchTab.USERS -> Unit
+            SearchResultType.PLAYLIST -> Unit
         }
     }
 
-    private suspend fun runSearch(query: String, saveToHistory: Boolean) {
-        val tab = _uiState.value.tab
+    private suspend fun runSearch(query: String, saveToHistory: Boolean, autoPlayTop: Boolean = false) {
         lastIssuedQuery = query
         _uiState.update { it.copy(status = SearchStatus.LOADING) }
         if (saveToHistory) {
             historyRepository.add(query)
         }
         try {
-            val results = repository.search(tab, query)
+            val results = repository.smartSearch(query)
             // Stale-response guard: discard if the user has typed something
             // new since this call was issued.
-            if (lastIssuedQuery != query || _uiState.value.query.trim() != query.trim() || _uiState.value.tab != tab) return
+            if (lastIssuedQuery != query || _uiState.value.query.trim() != query.trim()) return
             _uiState.update {
                 it.copy(
                     status = if (results.isEmpty()) SearchStatus.EMPTY else SearchStatus.RESULTS,
                     results = results,
-                    songSuggestions = if (tab == SearchTab.TRACKS) results.take(5) else emptyList(),
+                    songSuggestions = results.filter { r -> r.type == SearchResultType.TRACK }.take(5),
                 )
             }
-            if (tab == SearchTab.TRACKS) {
-                musicPlayer.warmLikelyPlays(results.map { it.toPlayableTrack() })
+            val trackItems = results.filter { r -> r.type == SearchResultType.TRACK }
+            if (trackItems.isNotEmpty()) {
+                musicPlayer.warmLikelyPlays(trackItems.map { it.toPlayableTrack() })
+            }
+            if (autoPlayTop && results.isNotEmpty()) {
+                val top = results.first()
+                if (top.type == SearchResultType.TRACK || top.type == SearchResultType.ALBUM) {
+                    playResult(top)
+                }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            if (lastIssuedQuery != query || _uiState.value.query.trim() != query.trim() || _uiState.value.tab != tab) return
+            if (lastIssuedQuery != query || _uiState.value.query.trim() != query.trim()) return
             _uiState.update { it.copy(status = SearchStatus.EMPTY, results = emptyList()) }
         }
     }

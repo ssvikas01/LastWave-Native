@@ -526,3 +526,17 @@ internal val PLAYER_CLIENTS = listOf(
         userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
     ),
 )
+
+enum class SmartSearchKind { TRACK, ARTIST, ALBUM, PLAYLIST }
+
+data class SmartSearchItem(
+    val kind: SmartSearchKind,
+    val name: String,
+    val artist: String? = null,
+    val subtitle: String? = null,
+    val artworkUrl: String? = null,
+    val videoId: String? = null,
+    val browseId: String? = null,
+    val durationSeconds: Int? = null,
+    val previewTracks: List<YouTubeMusicTrack> = emptyList(),
+)
