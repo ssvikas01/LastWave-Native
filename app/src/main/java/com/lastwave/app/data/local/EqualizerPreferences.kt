@@ -1,4 +1,4 @@
-package com.lastwave.app.data.local
+﻿package com.lastwave.app.data.local
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -27,7 +27,7 @@ data class EqPreset(
 
 /**
  * Curated, listening-tested 15-band curves. Values are deliberately kept in
- * the ±8 dB range — beyond that Android's audio fx chain starts clipping and
+ * the Â±8 dB range â€” beyond that Android's audio fx chain starts clipping and
  * smearing transients, so these are the strongest settings that still sound
  * clean at high volume.
  */
@@ -39,7 +39,7 @@ object EqualizerPresets {
      * Crystal-open audiophile reference curve for Studio Master Clarity.
      * Tight, controlled sub-bass depth, a deliberate low-mid dip that
      * removes congestion and mud, natural vocal body, strong presence lift
-     * and a tall silky air shelf — the "window opened" spacious sound.
+     * and a tall silky air shelf â€” the "window opened" spacious sound.
      */
     val STUDIO_MASTER = EqPreset(
         "Studio Master",
@@ -53,6 +53,7 @@ object EqualizerPresets {
     val ALL: List<EqPreset> = listOf(
         FLAT,
         STUDIO_MASTER,
+        POWERAMP_PUNCH,
         EqPreset("Acoustic", listOf(3.0f, 2.5f, 2.0f, 1.5f, 0.5f, 1.0f, 1.5f, 2.0f, 2.0f, 1.5f, 1.0f, 1.0f, 1.0f, 1.5f, 1.5f)),
         EqPreset("Vocal Clarity", listOf(-1.5f, -1.0f, -0.5f, 0f, 0.5f, 1.0f, 2.0f, 3.0f, 3.5f, 3.0f, 2.5f, 2.0f, 1.5f, 1.5f, 1.0f)),
         EqPreset("Classical", listOf(3.0f, 2.5f, 2.0f, 1.5f, 0.5f, 0f, 0f, 0f, 0.5f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.0f)),
@@ -69,10 +70,10 @@ object EqualizerPresets {
 }
 
 data class EqualizerSettings(
-    val enabled: Boolean = false,
-    val presetName: String = EqualizerPresets.FLAT.name,
+    val enabled: Boolean = true,
+    val presetName: String = EqualizerPresets.POWERAMP_PUNCH.name,
     /** Per-band gain in dB, index-aligned with [EQ_BAND_FREQS_HZ]. */
-    val gainsDb: List<Float> = EqualizerPresets.FLAT.gainsDb,
+    val gainsDb: List<Float> = EqualizerPresets.POWERAMP_PUNCH.gainsDb,
     /** The listener's own named presets (at most [MAX_USER_EQ_PRESETS]), shared by every output. */
     val userPresets: List<EqPreset> = emptyList(),
 ) {
@@ -256,3 +257,4 @@ class EqualizerPreferences @Inject constructor(
             .take(MAX_USER_EQ_PRESETS)
             .toList()
 }
+
