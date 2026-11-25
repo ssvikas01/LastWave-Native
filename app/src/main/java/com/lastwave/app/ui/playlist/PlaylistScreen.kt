@@ -394,25 +394,7 @@ fun PlaylistScreen(
                         .heightIn(min = 52.dp),
                 )
 
-                FilledTonalButton(
-                    onClick = onOpenGenerator,
-                    shape = RoundedCornerShape(16.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                    modifier = Modifier.heightIn(min = 52.dp),
-                ) {
-                    Icon(
-                        Icons.Filled.AutoAwesome,
-                        contentDescription = "Generator",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "Generator",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+
             }
 
             val localSongsPlaylist = remember(state.playlists, searchQuery, selectedFilter) {
@@ -462,7 +444,7 @@ fun PlaylistScreen(
                 "downloads".contains(searchQuery.trim(), ignoreCase = true)) &&
                 (selectedFilter == PlaylistFilter.ALL || selectedFilter == PlaylistFilter.IMPORTED)
 
-            val hasHeroRow = localSongsPlaylist != null || showDownloadsCard
+            val hasHeroRow = false // Removed Local & Downloads hero cards
             val heroCardCount = (if (localSongsPlaylist != null) 1 else 0) + (if (showDownloadsCard) 1 else 0)
             val totalPlaylistCount = effectiveSpotify.size + filteredPlaylists.size
             val hasItemsBelow = totalPlaylistCount > 0
