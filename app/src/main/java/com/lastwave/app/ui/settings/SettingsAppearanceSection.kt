@@ -267,12 +267,11 @@ import kotlin.math.roundToLong
 
 internal data class AccentPreset(val name: String, val hex: String)
 internal val ACCENT_PRESETS = listOf(
-    AccentPreset("Crimson", "#E03030"),
-    AccentPreset("Violet", "#7C4DFF"),
-    AccentPreset("Ocean", "#2196C6"),
-    AccentPreset("Sage", "#6B9E6B"),
-    AccentPreset("Amber", "#E0A030"),
-    AccentPreset("Rose", "#E0507A"),
+    AccentPreset("Obsidian Blue", "#1A1A2E"),
+    AccentPreset("Obsidian Crimson", "#2B0000"),
+    AccentPreset("Emerald Void", "#002418"),
+    AccentPreset("Cyber Violet", "#220038"),
+    AccentPreset("Monolith Minimal", "#18181B"),
 )
 
 @Composable
