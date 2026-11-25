@@ -1,4 +1,4 @@
-﻿package com.lastwave.app.data.local
+package com.lastwave.app.data.local
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -27,7 +27,7 @@ data class EqPreset(
 
 /**
  * Curated, listening-tested 15-band curves. Values are deliberately kept in
- * the Â±8 dB range â€” beyond that Android's audio fx chain starts clipping and
+ * the ±8 dB range — beyond that Android's audio fx chain starts clipping and
  * smearing transients, so these are the strongest settings that still sound
  * clean at high volume.
  */
@@ -39,7 +39,7 @@ object EqualizerPresets {
      * Crystal-open audiophile reference curve for Studio Master Clarity.
      * Tight, controlled sub-bass depth, a deliberate low-mid dip that
      * removes congestion and mud, natural vocal body, strong presence lift
-     * and a tall silky air shelf â€” the "window opened" spacious sound.
+     * and a tall silky air shelf — the "window opened" spacious sound.
      */
     val STUDIO_MASTER = EqPreset(
         "Studio Master",
@@ -50,10 +50,18 @@ object EqualizerPresets {
         ),
     )
 
+        val POWERAMP_PUNCH = EqPreset(
+        "Poweramp Punch",
+        listOf(
+            5.5f, 5.0f, 4.0f, 2.5f, 0.5f,
+            -1.0f, -1.5f, -0.5f, 0.5f, 1.5f,
+            2.5f, 3.0f, 3.5f, 4.5f, 5.5f,
+        ),
+    )
     val ALL: List<EqPreset> = listOf(
+        POWERAMP_PUNCH,
         FLAT,
         STUDIO_MASTER,
-        POWERAMP_PUNCH,
         EqPreset("Acoustic", listOf(3.0f, 2.5f, 2.0f, 1.5f, 0.5f, 1.0f, 1.5f, 2.0f, 2.0f, 1.5f, 1.0f, 1.0f, 1.0f, 1.5f, 1.5f)),
         EqPreset("Vocal Clarity", listOf(-1.5f, -1.0f, -0.5f, 0f, 0.5f, 1.0f, 2.0f, 3.0f, 3.5f, 3.0f, 2.5f, 2.0f, 1.5f, 1.5f, 1.0f)),
         EqPreset("Classical", listOf(3.0f, 2.5f, 2.0f, 1.5f, 0.5f, 0f, 0f, 0f, 0.5f, 1.0f, 1.5f, 2.0f, 2.5f, 3.0f, 3.0f)),
@@ -257,4 +265,3 @@ class EqualizerPreferences @Inject constructor(
             .take(MAX_USER_EQ_PRESETS)
             .toList()
 }
-
