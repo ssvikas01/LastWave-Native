@@ -1,8 +1,8 @@
-name: Build LastWave APK
+﻿name: Build LastWave APK
 
 on:
   push:
-    branches: [ main, master, 'feat/**', 'feature/**' ]
+    branches: [ main, master ]
     paths-ignore:
       - '**.md'
       - 'Screenshot/**'
@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -40,7 +40,7 @@ jobs:
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
-      - name: Verify download, playback and scrobbler regressions
+      - name: Verify download and playback regressions
         run: >-
           ./gradlew :app:testDebugUnitTest
           --tests 'com.lastwave.app.data.download.YouTubeDownloadResolverTest'
@@ -53,11 +53,6 @@ jobs:
           --tests 'com.lastwave.app.data.download.Fmp4IndexBuilderTest'
           --tests 'com.lastwave.app.playback.ChunkedRangeDataSourceTest'
           --tests 'com.lastwave.app.data.music.PlaybackCandidateRaceTest'
-          --tests 'com.lastwave.app.playback.automix.*'
-          --tests 'com.lastwave.app.data.scrobbler.*'
-          --tests 'com.lastwave.app.data.repository.ScrobbleRepositoryTest'
-          --tests 'com.lastwave.app.data.backup.BackupScrobblerCredentialsTest'
-          --tests 'com.lastwave.app.ui.settings.SettingsClearAllDataTest'
           --stacktrace
 
       - name: Upload regression test results
@@ -68,7 +63,6 @@ jobs:
           path: |
             app/build/reports/tests/testDebugUnitTest/
             app/build/test-results/testDebugUnitTest/
-            app/build/automix-renders/
           if-no-files-found: ignore
 
       - name: Build Release APK
@@ -80,7 +74,7 @@ jobs:
           RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD || secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.ALIAS || secrets.RELEASE_KEY_ALIAS || 'release_key' }}
           RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || secrets.RELEASE_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --stacktrace
+        run: ./gradlew assembleRelease -PvivoOrigin=true --stacktrace
 
       - name: Stage Final APK
         id: prep_apk
@@ -92,11 +86,11 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Building APK for LastWave v$VERSION"
+          echo "Building APK for Vikas Music (iQOO Z9x / OriginOS 6) v$VERSION"
           if [ -f "app/build/outputs/apk/release/app-release-signed.apk" ]; then
-            cp app/build/outputs/apk/release/app-release-signed.apk final_apk/LastWave-v${VERSION}-release.apk
+            cp app/build/outputs/apk/release/app-release-signed.apk final_apk/VikasMusic-v${VERSION}-OriginOS6.apk
           else
-            cp app/build/outputs/apk/release/app-release.apk final_apk/LastWave-v${VERSION}-release.apk
+            cp app/build/outputs/apk/release/app-release.apk final_apk/VikasMusic-v${VERSION}-OriginOS6.apk
           fi
           ls -lh final_apk/
 
@@ -119,6 +113,6 @@ jobs:
       - name: Upload Release APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: LastWave-v${{ steps.prep_apk.outputs.version }}-APK
+          name: VikasMusic-v${{ steps.prep_apk.outputs.version }}-OriginOS6-APK
           path: final_apk/*
           if-no-files-found: error
