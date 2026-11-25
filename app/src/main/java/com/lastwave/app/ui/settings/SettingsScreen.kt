@@ -957,6 +957,61 @@ fun SettingsScreen(
                         }
                         add { position ->
                             SettingsToggleCard(
+                                icon = Icons.Filled.Vibration,
+                                iconContainer = MaterialTheme.colorScheme.secondaryContainer,
+                                iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                title = "Shake to skip",
+                                subtitle = if (misc.shakeToSkipEnabled) {
+                                    "Shake phone deliberately to skip to next song"
+                                } else {
+                                    "Disabled • pocket movements won't skip tracks"
+                                },
+                                checked = misc.shakeToSkipEnabled,
+                                onCheckedChange = viewModel::setShakeToSkipEnabled,
+                                position = position,
+                            )
+                        }
+                        if (misc.shakeToSkipEnabled) {
+                            add { position ->
+                                Surface(
+                                    shape = com.lastwave.app.ui.common.groupShape(position),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                text = "Shake threshold",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium,
+                                            )
+                                            val label = when {
+                                                misc.shakeToSkipThreshold >= 4.2f -> "Low sensitivity (${String.format("%.1f", misc.shakeToSkipThreshold)}g)"
+                                                misc.shakeToSkipThreshold <= 3.1f -> "High sensitivity (${String.format("%.1f", misc.shakeToSkipThreshold)}g)"
+                                                else -> "Balanced (${String.format("%.1f", misc.shakeToSkipThreshold)}g)"
+                                            }
+                                            Text(
+                                                text = label,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                        Slider(
+                                            value = misc.shakeToSkipThreshold,
+                                            onValueChange = viewModel::setShakeToSkipThreshold,
+                                            valueRange = 2.8f..4.8f,
+                                            steps = 3,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        add { position ->
+                            SettingsToggleCard(
                                 icon = QualityGlyphs.Crossfade,
                                 iconContainer = MaterialTheme.colorScheme.secondaryContainer,
                                 iconTint = MaterialTheme.colorScheme.onSecondaryContainer,

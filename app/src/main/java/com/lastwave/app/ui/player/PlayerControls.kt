@@ -561,6 +561,7 @@ internal fun PlayerUtilityControls(
     player: MusicPlayer,
     isTranslucent: Boolean = false,
     onOpenAudioControls: () -> Unit = {},
+    onOpenQueue: () -> Unit = {},
     isVideoActive: Boolean = false,
     musicVideoEnabled: Boolean = true,
     showAutoEqInVolumePanel: Boolean = true,
@@ -590,7 +591,7 @@ internal fun PlayerUtilityControls(
             onClick = player::toggleShuffle,
             background = edgeButtonBackground,
             foreground = edgeButtonContent,
-            shape = connectedShape(0, 3),
+            shape = connectedShape(0, 4),
             iconSize = if (isTranslucent) 19.dp else 20.dp,
             modifier = Modifier.weight(1f).height(if (isTranslucent) 44.dp else 48.dp),
         )
@@ -604,7 +605,7 @@ internal fun PlayerUtilityControls(
                 isVideoActive = isVideoActive,
                 onOpenAudioControls = onOpenAudioControls,
                 onToggleVideo = onToggleVideo,
-                shape = connectedShape(1, 3),
+                shape = connectedShape(1, 4),
                 modifier = Modifier.weight(1f).height(if (isTranslucent) 44.dp else 48.dp),
             )
         } else {
@@ -615,7 +616,7 @@ internal fun PlayerUtilityControls(
                 onClick = onOpenAudioControls,
                 background = edgeButtonBackground,
                 foreground = edgeButtonContent,
-                shape = connectedShape(1, 3),
+                shape = connectedShape(1, 4),
                 iconSize = if (isTranslucent) 19.dp else 20.dp,
                 modifier = Modifier.weight(1f).height(if (isTranslucent) 44.dp else 48.dp),
                 haptic = HapticFeedbackType.ContextClick,
@@ -632,11 +633,23 @@ internal fun PlayerUtilityControls(
             onClick = player::cycleRepeatMode,
             background = edgeButtonBackground,
             foreground = edgeButtonContent,
-            shape = connectedShape(2, 3),
+            shape = connectedShape(2, 4),
             iconSize = if (isTranslucent) 19.dp else 20.dp,
             modifier = Modifier.weight(1f).height(if (isTranslucent) 44.dp else 48.dp),
             // Repeat one is the last stop before off.
             haptic = if (state.repeatMode == Player.REPEAT_MODE_ONE) HapticFeedbackType.ToggleOff else HapticFeedbackType.ToggleOn,
+        )
+        PlayerModeButton(
+            active = false,
+            description = "Queue",
+            icon = Icons.Filled.QueueMusic,
+            onClick = onOpenQueue,
+            background = edgeButtonBackground,
+            foreground = edgeButtonContent,
+            shape = connectedShape(3, 4),
+            iconSize = if (isTranslucent) 19.dp else 20.dp,
+            modifier = Modifier.weight(1f).height(if (isTranslucent) 44.dp else 48.dp),
+            haptic = HapticFeedbackType.ContextClick,
         )
     }
 }

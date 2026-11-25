@@ -327,9 +327,10 @@ fun PlaylistScreen(
                     onValueChange = { searchQuery = it },
                     placeholder = {
                         Text(
-                            "Search playlists...",
+                            "Search songs, artists, albums, playlists...",
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     },
                     leadingIcon = {
@@ -541,59 +542,143 @@ fun PlaylistScreen(
                                         }
                                     val isSelected = selectedPlaylists.contains(playlist.id)
                                     val isRegenerating = state.regeneratingId == playlist.id
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .aspectRatio(1f)
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .then(
-                                                if (isSelected) {
-                                                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
-                                                } else Modifier
-                                            )
-                                            .combinedClickable(
-                                                onClick = {
-                                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
-                                                    if (selectedPlaylists.isNotEmpty()) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1f)
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .then(
+                                                    if (isSelected) {
+                                                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
+                                                    } else Modifier
+                                                )
+                                                .combinedClickable(
+                                                    onClick = {
+                                                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                                                        if (selectedPlaylists.isNotEmpty()) {
+                                                            selectedPlaylists = if (isSelected) selectedPlaylists - playlist.id else selectedPlaylists + playlist.id
+                                                        } else {
+                                                            onOpenPlaylist(playlist.id)
+                                                        }
+                                                    },
+                                                    onLongClick = {
+                                                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                                         selectedPlaylists = if (isSelected) selectedPlaylists - playlist.id else selectedPlaylists + playlist.id
-                                                    } else {
-                                                        onOpenPlaylist(playlist.id)
-                                                    }
-                                                },
-                                                onLongClick = {
-                                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                                    selectedPlaylists = if (isSelected) selectedPlaylists - playlist.id else selectedPlaylists + playlist.id
-                                                },
-                                            ),
-                                    ) {
-                                        PlaylistCover(
-                                            playlist = playlist,
-                                            modifier = Modifier.fillMaxSize(),
-                                            cornerRadius = 14.dp,
-                                        )
-                                        if (isThisPlaylistPlaying) {
-                                            com.lastwave.app.ui.player.PlayingWaveBars(
-                                                Modifier.align(Alignment.BottomEnd).padding(8.dp).size(26.dp, 20.dp),
-                                            )
-                                        }
-                                        if (isRegenerating) {
-                                            Surface(
-                                                shape = RoundedCornerShape(14.dp),
-                                                color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.62f),
+                                                    },
+                                                ),
+                                        ) {
+                                            PlaylistCover(
+                                                playlist = playlist,
                                                 modifier = Modifier.fillMaxSize(),
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    com.lastwave.app.ui.common.ExpressiveInlineLoadingIndicator(
-                                                        size = 28.dp,
-                                                        color = androidx.compose.ui.graphics.Color.White,
-                                                    )
+                                                cornerRadius = 14.dp,
+                                            )
+                                            if (isThisPlaylistPlaying) {
+                                                com.lastwave.app.ui.player.PlayingWaveBars(
+                                                    Modifier.align(Alignment.BottomEnd).padding(8.dp).size(26.dp, 20.dp),
+                                                )
+                                            }
+                                            if (isRegenerating) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(14.dp),
+                                                    color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.62f),
+                                                    modifier = Modifier.fillMaxSize(),
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        com.lastwave.app.ui.common.ExpressiveInlineLoadingIndicator(
+                                                            size = 28.dp,
+                                                            color = androidx.compose.ui.graphics.Color.White,
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
+                                        Text(
+                                            text = playlist.title,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.padding(top = 5.dp, start = 2.dp, end = 2.dp),
+                                        )
                                     }
                                 }
                                 if (rowItems.size == 1) {
                                     Spacer(Modifier.weight(1f))
+                                }
+                            }
+                        }
+
+                        if (searchQuery.isNotBlank()) {
+                            val matchingSongs = state.playlists
+                                .flatMap { pl ->
+                                    pl.tracks.filter { t ->
+                                        t.name.contains(searchQuery, ignoreCase = true) ||
+                                            t.artist.contains(searchQuery, ignoreCase = true) ||
+                                            t.album.orEmpty().contains(searchQuery, ignoreCase = true)
+                                    }.map { t -> pl.title to t }
+                                }
+                                .distinctBy { (_, t) -> "${t.name.lowercase()}|${t.artist.lowercase()}" }
+                                .take(30)
+
+                            if (matchingSongs.isNotEmpty()) {
+                                item(key = "library_matching_songs_header") {
+                                    Text(
+                                        text = "Songs in Library (${matchingSongs.size})",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 8.dp, start = 4.dp, bottom = 2.dp),
+                                    )
+                                }
+                                itemsIndexed(
+                                    items = matchingSongs,
+                                    key = { idx, (plTitle, t) -> "lib_song_${plTitle}_${t.name}_${t.artist}_$idx" },
+                                ) { _, (plTitle, track) ->
+                                    Surface(
+                                        onClick = {
+                                            musicPlayer.play(track.toPlayableTrack(), sourceLabel = plTitle, startRadio = true)
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            ArtworkImage(
+                                                name = track.name,
+                                                artist = track.artist,
+                                                embeddedUrl = track.artworkUrl,
+                                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)),
+                                            )
+                                            Spacer(Modifier.width(12.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    text = track.name,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                                Text(
+                                                    text = listOfNotNull(track.artist, track.album?.takeIf { it.isNotBlank() }, plTitle).joinToString(" • "),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            }
+                                            Icon(
+                                                imageVector = Icons.Filled.PlayArrow,
+                                                contentDescription = "Play",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(20.dp),
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -783,5 +868,6 @@ private fun SavedPlaylist.matchesPlaylistSearch(query: String): Boolean =
         title.contains(query, ignoreCase = true) ||
         tracks.any { t ->
             t.name.contains(query, ignoreCase = true) ||
-                t.artist.contains(query, ignoreCase = true)
+                t.artist.contains(query, ignoreCase = true) ||
+                t.album.orEmpty().contains(query, ignoreCase = true)
         }

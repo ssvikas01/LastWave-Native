@@ -919,8 +919,7 @@ class PlayerViewModel @Inject constructor(
     fun toggleLiked(track: PlayableTrack) {
         viewModelScope.launch {
             try {
-                val liked = trackLikeController.toggle(track)
-                _toastMessage.emit(if (liked) "Added to Liked Songs" else "Removed from Liked Songs")
+                trackLikeController.toggle(track)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {

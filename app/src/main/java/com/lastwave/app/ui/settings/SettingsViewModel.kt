@@ -840,6 +840,12 @@ class SettingsViewModel @Inject constructor(
     fun setWavySeekbarEnabled(enabled: Boolean) = launchSettingsAction("update seekbar style") {
         settingsPreferences.setWavySeekbarEnabled(enabled)
     }
+    fun setShakeToSkipEnabled(enabled: Boolean) = launchSettingsAction("update shake to skip") {
+        settingsPreferences.setShakeToSkipEnabled(enabled)
+    }
+    fun setShakeToSkipThreshold(threshold: Float) = launchSettingsAction("update shake sensitivity") {
+        settingsPreferences.setShakeToSkipThreshold(threshold)
+    }
     fun setRotatingBackgroundEnabled(enabled: Boolean) = launchSettingsAction("update rotating background") {
         settingsPreferences.setRotatingBackgroundEnabled(enabled)
     }

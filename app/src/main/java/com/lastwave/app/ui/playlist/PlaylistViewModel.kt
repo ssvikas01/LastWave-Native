@@ -148,6 +148,15 @@ class PlaylistViewModel @Inject constructor(
     }
 
     init {
+        viewModelScope.launch {
+            val savedModeName = runCatching { settingsPreferences.settings.first().playlistSortMode }.getOrNull()
+            val savedMode = PlaylistSortMode.entries.firstOrNull { it.name == savedModeName }
+            if (savedMode != null && savedMode != _uiState.value.sortMode) {
+                _uiState.update { s ->
+                    s.copy(sortMode = savedMode, playlists = sortPlaylists(s.playlists, savedMode))
+                }
+            }
+        }
         load()
         viewModelScope.launch {
             combine(
@@ -376,6 +385,9 @@ class PlaylistViewModel @Inject constructor(
         _uiState.update { s ->
             val sorted = sortPlaylists(s.playlists, mode)
             s.copy(sortMode = mode, playlists = sorted)
+        }
+        viewModelScope.launch {
+            runCatching { settingsPreferences.setPlaylistSortMode(mode.name) }
         }
     }
 

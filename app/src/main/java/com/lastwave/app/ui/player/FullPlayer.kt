@@ -668,8 +668,9 @@ internal fun FullPlayer(
             isDismissDragging = false
             var collapsing = false
             when {
+                currentTab == FullPlayerTab.LYRICS && dismissDragY > swipeThreshold -> onTabChange(FullPlayerTab.NOW_PLAYING)
                 currentTab == FullPlayerTab.QUEUE && dismissDragY > swipeThreshold -> onTabChange(FullPlayerTab.NOW_PLAYING)
-                currentTab == FullPlayerTab.NOW_PLAYING && dismissDragY < -swipeThreshold -> onTabChange(FullPlayerTab.QUEUE)
+                currentTab == FullPlayerTab.NOW_PLAYING && dismissDragY < -swipeThreshold -> onTabChange(FullPlayerTab.LYRICS)
                 dismissDragY > swipeThreshold -> {
                     collapsing = true
                     onCollapse()
@@ -1480,6 +1481,16 @@ internal fun FullPlayer(
                                         label = "videoBias",
                                     )
 
+                                    var doubleTapHeartTrigger by remember { mutableIntStateOf(0) }
+                                    var doubleTapHeartVisible by remember { mutableStateOf(false) }
+                                    LaunchedEffect(doubleTapHeartTrigger) {
+                                        if (doubleTapHeartTrigger > 0) {
+                                            doubleTapHeartVisible = true
+                                            kotlinx.coroutines.delay(520L)
+                                            doubleTapHeartVisible = false
+                                        }
+                                    }
+
                                     BoxWithConstraints(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -1529,9 +1540,10 @@ internal fun FullPlayer(
                                                                     lastTapSide = null
                                                                     lastTapTimestamp = 0L
                                                                     if (lastLikeTapTimestamp != 0L && now - lastLikeTapTimestamp < 450L) {
-                                onToggleLiked()
+                                                                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                                                                        onToggleLiked()
                                                                         lastLikeTapTimestamp = 0L
-                                                                        onDoubleTapLike()
+                                                                        doubleTapHeartTrigger++
                                                                     } else {
                                                                         lastLikeTapTimestamp = now
                                                                     }
@@ -1698,15 +1710,41 @@ internal fun FullPlayer(
                                                         alpha = sleeveAlpha
                                                     },
                                             ) {
-                                                PlayerArtwork(
-                                                    track = track,
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    corner = 22.dp,
-                                                    canvas = if (showSleeveCanvas) canvas else null,
-                                                    isPlaying = state.isPlaying,
-                                                    pausedForTransition = shownDismissY > 1f || currentTab != FullPlayerTab.NOW_PLAYING,
-                                                    onAspectRatioChanged = { canvasAspect = it },
-                                                )
+                                                Box(Modifier.fillMaxSize()) {
+                                                    PlayerArtwork(
+                                                        track = track,
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        corner = 22.dp,
+                                                        canvas = if (showSleeveCanvas) canvas else null,
+                                                        isPlaying = state.isPlaying,
+                                                        pausedForTransition = shownDismissY > 1f || currentTab != FullPlayerTab.NOW_PLAYING,
+                                                        onAspectRatioChanged = { canvasAspect = it },
+                                                    )
+                                                    androidx.compose.animation.AnimatedVisibility(
+                                                        visible = doubleTapHeartVisible,
+                                                        enter = scaleIn(
+                                                            animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 500f),
+                                                            initialScale = 0.5f,
+                                                        ) + fadeIn(tween(120)),
+                                                        exit = fadeOut(tween(260)) + scaleOut(tween(260), targetScale = 1.25f),
+                                                        modifier = Modifier.align(Alignment.Center),
+                                                    ) {
+                                                        Surface(
+                                                            shape = CircleShape,
+                                                            color = Color.Black.copy(alpha = 0.48f),
+                                                            modifier = Modifier.size(76.dp),
+                                                        ) {
+                                                            Box(contentAlignment = Alignment.Center) {
+                                                                Icon(
+                                                                    imageVector = androidx.compose.material.icons.Icons.Filled.Favorite,
+                                                                    contentDescription = null,
+                                                                    tint = if (isLiked) Color(0xFFFF4081) else Color.White,
+                                                                    modifier = Modifier.size(40.dp),
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
                                             }
                                         }
@@ -2009,6 +2047,7 @@ internal fun FullPlayer(
                                         player = player,
                                         isTranslucent = LocalLiquidGlass.current || showFullBleed,
                                         onOpenAudioControls = { showAudioControls = true },
+                                        onOpenQueue = { onTabChange(FullPlayerTab.QUEUE) },
                                         isVideoActive = isVideoActive,
                                         musicVideoEnabled = false,
                                         onToggleVideo = {},
@@ -2101,6 +2140,10 @@ internal fun FullPlayer(
             needsUsbPermission = dac != null && dac.hasUsbPeripheral && !dac.usbPermissionGranted,
             onRequestUsbAccess = player::requestUsbPermission,
             onDismiss = { showSignalPath = false },
+            onOpenEqualizer = {
+                showSignalPath = false
+                showAudioControls = true
+            },
             internalAvailability = internalAvailability,
             internalEnabled = player.isInternalDirectPrefEnabled,
             internalUnderruns = if (signalPath.internalDirectActive) player.internalDirectUnderruns() else null,

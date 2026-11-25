@@ -111,7 +111,17 @@ open class MainShellActivity : androidx.fragment.app.FragmentActivity() {
                 window.isStatusBarContrastEnforced = false
             }
         } catch (_: Throwable) {}
-        // Vikas Music: Shake phone to shuffle
+        // Vikas Music: Shake phone to skip (respects Settings toggle & threshold)
+        var shakeEnabled = true
+        var shakeThreshold = 3.8f
+        lifecycleScope.launch {
+            runCatching {
+                settingsPreferences.settings.collect { s ->
+                    shakeEnabled = s.shakeToSkipEnabled
+                    shakeThreshold = s.shakeToSkipThreshold
+                }
+            }
+        }
         try {
             val sensorManager = getSystemService(android.content.Context.SENSOR_SERVICE) as? android.hardware.SensorManager
             val accelerometer = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
@@ -119,15 +129,15 @@ open class MainShellActivity : androidx.fragment.app.FragmentActivity() {
                 var lastShakeTime = 0L
                 sensorManager.registerListener(object : android.hardware.SensorEventListener {
                     override fun onSensorChanged(event: android.hardware.SensorEvent) {
+                        if (!shakeEnabled) return
                         val x = event.values[0]
                         val y = event.values[1]
                         val z = event.values[2]
                         val gForce = Math.sqrt((x * x + y * y + z * z).toDouble()) / android.hardware.SensorManager.GRAVITY_EARTH
-                        if (gForce > 2.8) {
+                        if (gForce > shakeThreshold) {
                             val now = System.currentTimeMillis()
-                            if (now - lastShakeTime > 1200L) {
+                            if (now - lastShakeTime > 1800L) {
                                 lastShakeTime = now
-                                musicPlayer.get().toggleShuffle()
                                 musicPlayer.get().next()
                             }
                         }

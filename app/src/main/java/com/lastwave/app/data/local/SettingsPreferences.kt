@@ -214,6 +214,9 @@ data class MiscSettings(
     val seekbarStyle: SeekbarStyle = SeekbarStyle.DEFAULT,
     /** Animated wavy seekbar in the player (kept for backward compatibility). */
     val wavySeekbarEnabled: Boolean = (seekbarStyle == SeekbarStyle.WAVY),
+    val shakeToSkipEnabled: Boolean = true,
+    val shakeToSkipThreshold: Float = 3.8f,
+    val playlistSortMode: String = "DATE_DESC",
     val rotatingBackgroundEnabled: Boolean = true,
     /** When true, animates fluid rotating artwork in the lyrics background.
      *  When false (default), uses static blurred artwork background in the lyrics view. */
@@ -449,6 +452,9 @@ class SettingsPreferences @Inject constructor(
         val LYRICS_STYLE = stringPreferencesKey("lw_lyrics_style")
         val SEEKBAR_STYLE = stringPreferencesKey("lw_seekbar_style")
         val WAVY_SEEKBAR_ENABLED = booleanPreferencesKey("lw_wavy_seekbar_enabled")
+        val SHAKE_TO_SKIP_ENABLED = booleanPreferencesKey("lw_shake_to_skip_enabled")
+        val SHAKE_TO_SKIP_THRESHOLD = floatPreferencesKey("lw_shake_to_skip_threshold")
+        val PLAYLIST_SORT_MODE = stringPreferencesKey("lw_playlist_sort_mode")
         val ROTATING_BACKGROUND_ENABLED = booleanPreferencesKey("lw_rotating_background_enabled")
         val LYRICS_ROTATING_BACKGROUND_ENABLED = booleanPreferencesKey("lw_lyrics_rotating_background_enabled")
         val FLUID_BEAT_SYNC_ENABLED = booleanPreferencesKey("lw_fluid_beat_sync_enabled")
@@ -571,6 +577,9 @@ class SettingsPreferences @Inject constructor(
                 lyricsStyle = LyricsStyle.fromId(p.readSafely(Keys.LYRICS_STYLE)),
                 seekbarStyle = SeekbarStyle.fromId(p.readSafely(Keys.SEEKBAR_STYLE), p.readSafely(Keys.WAVY_SEEKBAR_ENABLED)),
                 wavySeekbarEnabled = SeekbarStyle.fromId(p.readSafely(Keys.SEEKBAR_STYLE), p.readSafely(Keys.WAVY_SEEKBAR_ENABLED)) == SeekbarStyle.WAVY,
+                shakeToSkipEnabled = p.readSafely(Keys.SHAKE_TO_SKIP_ENABLED) ?: true,
+                shakeToSkipThreshold = (p.readSafely(Keys.SHAKE_TO_SKIP_THRESHOLD) ?: 3.8f).coerceIn(2.6f, 5.0f),
+                playlistSortMode = p.readSafely(Keys.PLAYLIST_SORT_MODE) ?: "DATE_DESC",
                 rotatingBackgroundEnabled = p.readSafely(Keys.ROTATING_BACKGROUND_ENABLED) ?: true,
                 lyricsRotatingBackgroundEnabled = p.readSafely(Keys.LYRICS_ROTATING_BACKGROUND_ENABLED) ?: false,
                 fluidBeatSyncEnabled = p.readSafely(Keys.FLUID_BEAT_SYNC_ENABLED) ?: false,
@@ -1025,6 +1034,18 @@ class SettingsPreferences @Inject constructor(
 
     suspend fun setWavySeekbarEnabled(enabled: Boolean) {
         setSeekbarStyle(if (enabled) SeekbarStyle.WAVY else SeekbarStyle.DEFAULT)
+    }
+
+    suspend fun setShakeToSkipEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.SHAKE_TO_SKIP_ENABLED] = enabled }
+    }
+
+    suspend fun setShakeToSkipThreshold(threshold: Float) {
+        dataStore.edit { it[Keys.SHAKE_TO_SKIP_THRESHOLD] = threshold.coerceIn(2.6f, 5.0f) }
+    }
+
+    suspend fun setPlaylistSortMode(mode: String) {
+        dataStore.edit { it[Keys.PLAYLIST_SORT_MODE] = mode }
     }
 
     suspend fun setRotatingBackgroundEnabled(enabled: Boolean) {
