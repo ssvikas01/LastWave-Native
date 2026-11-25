@@ -496,27 +496,7 @@ fun ModernLyricsPanel(
                                         .fillMaxSize()
                                         .padding(top = 8.dp),
                                 ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(bottom = 6.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                    ) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = liquidGlassContainerColor(Color.White.copy(alpha = 0.16f)),
-                                            contentColor = Color.White.copy(alpha = 0.92f),
-                                        ) {
-                                            Text(
-                                                text = syncLabel,
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    letterSpacing = 0.6.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                ),
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                                            )
-                                        }
-                                    }
+                                    // WORD/LINE SYNC badge removed for clean immersive fullscreen
                                     SyncedLyricsProgressHost(
                                         lines = targetState.lines,
                                         isOverallRtl = isOverallRtl,
