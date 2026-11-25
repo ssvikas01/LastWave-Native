@@ -407,7 +407,7 @@ fun PlaylistScreen(
 
             val filteredPlaylists = remember(state.playlists, searchQuery, selectedFilter) {
                 state.playlists
-                    .filter { it.mode != LOCAL_SONGS_MODE }
+                    .filter { it.mode != LOCAL_SONGS_MODE && it.mode != LIKED_SONGS_MODE && !it.title.equals("Liked Songs", ignoreCase = true) && !it.isPinned && it.mode !in GENERATED_MODES }
                     .filter { pl ->
                         when (selectedFilter) {
                             PlaylistFilter.ALL -> true
@@ -454,6 +454,18 @@ fun PlaylistScreen(
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
             ) {
+                // Vikas Music: Flowing ambient artwork glow bleed
+                val topGlowColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(topGlowColor, topGlowColor.copy(alpha = 0.08f), androidx.compose.ui.graphics.Color.Transparent)
+                            )
+                        )
+                )
                 when {
                     state.isLoading && state.playlists.isEmpty() && !state.isGenerating -> LoadingState()
                     !hasHeroRow && filteredPlaylists.isEmpty() && !state.isGenerating &&
