@@ -24,15 +24,18 @@ jobs:
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
-      - name: Generate Release Keystore
+      - name: Generate Release Keystores Everywhere
         run: |
-          mkdir -p ~/.android
-          keytool -genkeypair -v -keystore release.keystore -alias release_key -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=VikasMusic,O=Vikas,C=US"
-          keytool -genkeypair -v -keystore ~/.android/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+          mkdir -p ~/.android ~/.config/.android app
+          keytool -genkeypair -v -keystore app/release.keystore -alias release_key -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=VikasMusic,O=Vikas,C=US"
+          cp app/release.keystore release.keystore
+          cp app/release.keystore ~/.android/debug.keystore
+          cp app/release.keystore ~/.config/.android/debug.keystore
+          ls -la app/release.keystore release.keystore ~/.android/debug.keystore ~/.config/.android/debug.keystore
 
       - name: Build Release APK
         env:
-          RELEASE_STORE_FILE: release.keystore
+          RELEASE_STORE_FILE: app/release.keystore
           RELEASE_STORE_PASSWORD: android
           RELEASE_KEY_ALIAS: release_key
           RELEASE_KEY_PASSWORD: android
