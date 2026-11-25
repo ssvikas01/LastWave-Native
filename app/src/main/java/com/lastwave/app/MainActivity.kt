@@ -102,6 +102,40 @@ open class MainShellActivity : androidx.fragment.app.FragmentActivity() {
                 }
             }
         } catch (_: Throwable) {}
+        // Vikas Music: True 100% Pitch-Black System Bars
+        try {
+            window.statusBarColor = android.graphics.Color.BLACK
+            window.navigationBarColor = android.graphics.Color.BLACK
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                window.isNavigationBarContrastEnforced = false
+                window.isStatusBarContrastEnforced = false
+            }
+        } catch (_: Throwable) {}
+        // Vikas Music: Shake phone to shuffle
+        try {
+            val sensorManager = getSystemService(android.content.Context.SENSOR_SERVICE) as? android.hardware.SensorManager
+            val accelerometer = sensorManager?.getDefaultSensor(android.hardware.Sensor.TYPE_ACCELEROMETER)
+            if (sensorManager != null && accelerometer != null) {
+                var lastShakeTime = 0L
+                sensorManager.registerListener(object : android.hardware.SensorEventListener {
+                    override fun onSensorChanged(event: android.hardware.SensorEvent) {
+                        val x = event.values[0]
+                        val y = event.values[1]
+                        val z = event.values[2]
+                        val gForce = Math.sqrt((x * x + y * y + z * z).toDouble()) / android.hardware.SensorManager.GRAVITY_EARTH
+                        if (gForce > 2.8) {
+                            val now = System.currentTimeMillis()
+                            if (now - lastShakeTime > 1200L) {
+                                lastShakeTime = now
+                                musicPlayer.get().toggleShuffle()
+                                musicPlayer.get().skipNext()
+                            }
+                        }
+                    }
+                    override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {}
+                }, accelerometer, android.hardware.SensorManager.SENSOR_DELAY_UI)
+            }
+        } catch (_: Throwable) {}
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Adopt choices made via system Settings -> App languages so the
             // in-app picker shows the truth. The framework recreates us itself.
