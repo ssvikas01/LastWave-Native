@@ -185,7 +185,7 @@ data class MiscSettings(
     /** When true, shows floating button now playing instead of the bottom mini player card (Settings -> Experimental). */
     val buttonNowPlayingEnabled: Boolean = false,
     /** When true, shows synced music video option in the Now Playing menu (Settings -> Experimental). On by default. */
-    val musicVideoEnabled: Boolean = true,
+    val musicVideoEnabled: Boolean = false,
     /** When true (default), shows AutoEQ and Parametric EQ card in Now Playing audio controls sheet. */
     val showAutoEqInVolumePanel: Boolean = true,
     val wordByWordLyrics: Boolean = true,
