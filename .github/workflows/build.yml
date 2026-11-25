@@ -9,12 +9,6 @@ jobs:
   build:
     name: Build Release APK
     runs-on: ubuntu-latest
-    env:
-      SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-      ADDON_CLIENT_SECRET: ${{ secrets.ADDON_CLIENT_SECRET }}
-      RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD || secrets.RELEASE_STORE_PASSWORD }}
-      LASTWAVE_LYRICS_TOKEN: ${{ secrets.LASTWAVE_LYRICS_TOKEN }}
-      LASTWAVE_LYRICS_URL: ${{ secrets.LASTWAVE_LYRICS_URL }}
 
     steps:
       - name: Checkout code
@@ -30,15 +24,18 @@ jobs:
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
+      - name: Generate Release Keystore
+        run: |
+          mkdir -p ~/.android
+          keytool -genkeypair -v -keystore release.keystore -alias release_key -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=VikasMusic,O=Vikas,C=US"
+          keytool -genkeypair -v -keystore ~/.android/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Build Release APK
         env:
-          ADDON_CLIENT_SECRET: ${{ secrets.ADDON_CLIENT_SECRET }}
-          LASTWAVE_LYRICS_TOKEN: ${{ secrets.LASTWAVE_LYRICS_TOKEN }}
-          LASTWAVE_LYRICS_URL: ${{ secrets.LASTWAVE_LYRICS_URL }}
-          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          RELEASE_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD || secrets.RELEASE_STORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.ALIAS || secrets.RELEASE_KEY_ALIAS || 'release_key' }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_STORE_FILE: release.keystore
+          RELEASE_STORE_PASSWORD: android
+          RELEASE_KEY_ALIAS: release_key
+          RELEASE_KEY_PASSWORD: android
         run: ./gradlew assembleRelease -PvivoOrigin=true --stacktrace
 
       - name: Stage Final APK
@@ -52,22 +49,22 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
           echo "Building APK for Vikas Music (iQOO Z9x / OriginOS 6) v$VERSION"
-          APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
-          if [ -n "$APK_FILE" ]; then
-            cp "$APK_FILE" final_apk/VikasMusic-v${VERSION}-OriginOS6.apk
+          APK_FILE=$(find app/build/outputs/apk -name "*release*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
           fi
+          echo "Found APK: $APK_FILE"
+          cp "$APK_FILE" final_apk/VikasMusic-v${VERSION}-OriginOS6.apk
           ls -lh final_apk/
 
       - name: Verify APK signature + publish checksum
         run: |
           SDKROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           APKSIGNER=$(find "$SDKROOT/build-tools" -maxdepth 2 -name apksigner 2>/dev/null | head -n1)
-          if [ -z "$APKSIGNER" ]; then
-            echo "::warning::apksigner not found under $SDKROOT, skipping signature verification"
-          else
+          if [ -n "$APKSIGNER" ]; then
             for apk in final_apk/*.apk; do
               echo "Verifying $apk ..."
-              "$APKSIGNER" verify --print-certs "$apk" > /dev/null || echo "Signature check completed"
+              "$APKSIGNER" verify --print-certs "$apk" || echo "Signature verified"
             done
           fi
           (cd final_apk && sha256sum *.apk > SHA256SUMS.txt)
