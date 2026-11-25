@@ -1,4 +1,4 @@
-package com.lastwave.app
+﻿package com.lastwave.app
 
 import android.Manifest
 import android.content.Context
@@ -33,6 +33,7 @@ import com.lastwave.app.ui.navigation.Screen
 import com.lastwave.app.ui.player.PlayerHost
 import com.lastwave.app.ui.theme.LastWaveTheme
 import com.lastwave.app.ui.theme.ThemeViewModel
+import android.view.WindowManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -61,9 +62,6 @@ open class MainShellActivity : androidx.fragment.app.FragmentActivity() {
     @Inject
     lateinit var musicPlayer: dagger.Lazy<com.lastwave.app.playback.MusicPlayer>
 
-    @Inject
-    lateinit var discordPresenceManager: dagger.Lazy<com.lastwave.app.presence.DiscordPresenceManager>
-
     private val audioPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
             lifecycleScope.launch(Dispatchers.IO) {
@@ -90,6 +88,25 @@ open class MainShellActivity : androidx.fragment.app.FragmentActivity() {
             .getOrNull()
         super.onCreate(savedInstanceState)
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC
+        // =====================================================
+        // Vikas Music: Lock to 120Hz on iQOO Z9x 5G (OriginOS 6)
+        // =====================================================
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val display = windowManager.defaultDisplay
+                val modes = display.supportedModes
+                val highRefreshMode = modes
+                    .filter { it.refreshRate >= 119f }
+                    .maxByOrNull { it.refreshRate }
+                if (highRefreshMode != null) {
+                    val params = window.attributes
+                    params.preferredDisplayModeId = highRefreshMode.modeId
+                    window.attributes = params
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w(VikasMusic, 120Hz lock failed: ")
+ }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Adopt choices made via system Settings -> App languages so the
             // in-app picker shows the truth. The framework recreates us itself.
@@ -99,7 +116,7 @@ open class MainShellActivity : androidx.fragment.app.FragmentActivity() {
         } else {
             // No framework per-app locales here: recreate once per language
             // change so attachBaseContext re-wraps with the new locale.
-            // drop(1) skips the initial emission — recreation never loops.
+            // drop(1) skips the initial emission â€” recreation never loops.
             lifecycleScope.launch {
                 runCatching {
                     settingsPreferences.settings
@@ -250,7 +267,6 @@ open class MainShellActivity : androidx.fragment.app.FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
-        runCatching { discordPresenceManager.get().onAppForegrounded() }
         requestHighestSupportedRefreshRate()
     }
 
@@ -341,7 +357,7 @@ open class MainShellActivity : androidx.fragment.app.FragmentActivity() {
     private fun handleNavigationIntent(intent: Intent?) {
         if (intent == null) return
         if (intent.getStringExtra("widget_navigation") == "search") {
-            runCatching { appRouteNavigator.get().navigateTo(Screen.Search.createRoute()) }
+            runCatching { appRouteNavigator.get().navigateTo(Screen.Search.route) }
             return
         }
         if (intent.action == com.lastwave.app.widget.wave.WaveWidgetNavigation.ACTION_OPEN_NOW_PLAYING) {
@@ -423,3 +439,4 @@ open class MainShellActivity : androidx.fragment.app.FragmentActivity() {
 /** Legacy alias class retained for backwards compatibility with any explicit intents. */
 @AndroidEntryPoint
 class MainActivity : MainShellActivity()
+
