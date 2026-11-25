@@ -1529,6 +1529,7 @@ internal fun FullPlayer(
                                                                     lastTapSide = null
                                                                     lastTapTimestamp = 0L
                                                                     if (lastLikeTapTimestamp != 0L && now - lastLikeTapTimestamp < 450L) {
+                                onToggleLiked()
                                                                         lastLikeTapTimestamp = 0L
                                                                         onDoubleTapLike()
                                                                     } else {
@@ -1839,7 +1840,7 @@ internal fun FullPlayer(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = if (isVideoActive) 20.dp else 0.dp)
-                                            .graphicsLayer { translationY = -14.dp.toPx() },
+                                            .graphicsLayer { translationY = -42.dp.toPx() },
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                     ) {
                                     Row(
@@ -2002,15 +2003,15 @@ internal fun FullPlayer(
                                     )
                                     Spacer(Modifier.height(12.dp))
                                     MainControls(state, player, isTranslucent = LocalLiquidGlass.current || showFullBleed)
-                                    Spacer(Modifier.height(30.dp))
+                                    Spacer(Modifier.height(10.dp))
                                     PlayerUtilityControls(
                                         state = state,
                                         player = player,
                                         isTranslucent = LocalLiquidGlass.current || showFullBleed,
                                         onOpenAudioControls = { showAudioControls = true },
                                         isVideoActive = isVideoActive,
-                                        musicVideoEnabled = musicVideoEnabled,
-                                        onToggleVideo = onToggleSyncedVideo,
+                                        musicVideoEnabled = false,
+                                        onToggleVideo = {},
                                         modifier = Modifier.padding(top = 4.dp),
                                     )
                                 }
