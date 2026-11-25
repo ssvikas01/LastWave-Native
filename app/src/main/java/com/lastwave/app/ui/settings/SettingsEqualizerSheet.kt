@@ -190,6 +190,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -433,9 +434,9 @@ internal fun EqualizerCurveGraph(
 fun EqualizerTabScreen(
     viewModel: SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
 ) {
-    val eq by androidx.lifecycle.compose.collectAsStateWithLifecycle(viewModel.equalizer)
+    val eq by viewModel.equalizer.collectAsStateWithLifecycle()
     val musicPlayer = com.lastwave.app.ui.player.LocalMusicPlayer.current
-    val playbackState by androidx.lifecycle.compose.collectAsStateWithLifecycle(musicPlayer.listPlaybackState)
+    val playbackState by musicPlayer.listPlaybackState.collectAsStateWithLifecycle()
 
     Box(modifier = Modifier.fillMaxSize()) {
         com.lastwave.app.ui.feed.FlowingArtworkTopGlow(

@@ -838,8 +838,6 @@ fun PlaylistDetailScreen(
                                 haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                                 menuTarget = displayTrackIndices[index] to track
                             },
-                        )
-                        }
                             onLongClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 val safeIndex = index.coerceIn(displayTracks.indices)
@@ -959,6 +957,7 @@ fun PlaylistDetailScreen(
                                 }
                             },
                         )
+                        }
                     }
                 }
             }

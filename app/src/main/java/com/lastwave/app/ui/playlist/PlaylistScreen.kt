@@ -314,49 +314,66 @@ fun PlaylistScreen(
                 },
             )
 
-            // Search Bar matching Downloads tab design
-            Row(
+            // Compact low-profile translucent search pill
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .height(42.dp),
             ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = {
-                        Text(
-                            "Search songs, artists, albums, playlists...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Filled.Search, contentDescription = "Search", modifier = Modifier.size(20.dp))
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Filled.Clear, contentDescription = "Clear", modifier = Modifier.size(18.dp))
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
-                    ),
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 52.dp),
-                )
-
-
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                "Search songs, artists, albums, playlists...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                            ),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { searchQuery = "" },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                Icons.Filled.Clear,
+                                contentDescription = "Clear",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                }
             }
 
             val localSongsPlaylist = remember(state.playlists, searchQuery, selectedFilter) {
@@ -369,19 +386,9 @@ fun PlaylistScreen(
 
             val filteredPlaylists = remember(state.playlists, searchQuery, selectedFilter) {
                 state.playlists
-                    .filter { it.mode != LOCAL_SONGS_MODE && it.mode != LIKED_SONGS_MODE && !it.title.equals("Liked Songs", ignoreCase = true) && !it.isPinned && it.mode !in GENERATED_MODES }
-                    .filter { pl ->
-                        when (selectedFilter) {
-                            PlaylistFilter.ALL -> true
-                            PlaylistFilter.LIKED -> pl.mode == LIKED_SONGS_MODE || pl.title.equals("Liked Songs", ignoreCase = true) || pl.remotePlaylistId?.let(PlaylistImportManager::isYtLikedId) == true || pl.remotePlaylistId == "LM"
-                            PlaylistFilter.GENERATED -> pl.mode in GENERATED_MODES || pl.discoverSignature != null
-                            PlaylistFilter.YTMUSIC -> pl.isYouTubeOnly || pl.remotePlaylistId != null
-                            PlaylistFilter.SPOTIFY -> false
-                            PlaylistFilter.IMPORTED -> pl.mode == "imported" || pl.mode == "custom"
-                            PlaylistFilter.PINNED -> pl.isPinned
-                        }
-                    }
+                    .filter { it.mode != LOCAL_SONGS_MODE && it.mode != LIKED_SONGS_MODE && !it.title.equals("Liked Songs", ignoreCase = true) && it.mode !in GENERATED_MODES }
                     .filter { it.matchesPlaylistSearch(searchQuery) }
+                    .sortedByDescending { it.isPinned }
             }
 
             val filteredSpotifyPlaylists = remember(state.spotifyPlaylists, searchQuery, selectedFilter) {
@@ -417,12 +424,46 @@ fun PlaylistScreen(
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
             ) {
                 when {
-                    state.isLoading && state.playlists.isEmpty() && !state.isGenerating -> LoadingState()
+                    state.isLoading && state.playlists.isEmpty() && !state.isGenerating -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            repeat(2) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    repeat(2) {
+                                        Column(Modifier.weight(1f)) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .aspectRatio(1f)
+                                                    .clip(RoundedCornerShape(14.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.35f)),
+                                            )
+                                            Spacer(Modifier.height(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(0.7f)
+                                                    .height(14.dp)
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.25f)),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     searchQuery.isBlank() && !hasHeroRow && filteredPlaylists.isEmpty() && !state.isGenerating &&
                         effectiveSpotify.isEmpty() -> EmptyState()
                     else -> LazyColumn(
-                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = FloatingNavDefaults.contentBottomPadding()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = FloatingNavDefaults.contentBottomPadding()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         if (hasHeroRow) {
@@ -524,6 +565,60 @@ fun PlaylistScreen(
                             }
                         }
 
+                        if (searchQuery.isNotBlank()) {
+                            if (filteredPlaylists.isNotEmpty()) {
+                                item(key = "search_playlists_header") {
+                                    Text(
+                                        text = "Playlists (${filteredPlaylists.size})",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 4.dp, start = 2.dp, bottom = 2.dp),
+                                    )
+                                }
+                                itemsIndexed(
+                                    items = filteredPlaylists,
+                                    key = { _, pl -> "search_pl_${pl.id}" },
+                                ) { _, playlist ->
+                                    val trackCount = playlist.remoteTrackCount ?: playlist.tracks.size
+                                    Surface(
+                                        onClick = { onOpenPlaylist(playlist.id) },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(48.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .border(0.5.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
+                                            ) {
+                                                PlaylistCover(playlist = playlist, modifier = Modifier.fillMaxSize(), cornerRadius = 10.dp)
+                                            }
+                                            Spacer(Modifier.width(12.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text(
+                                                    text = playlist.title,
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                                Text(
+                                                    text = "$trackCount songs",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
                         val chunkedPlaylists = filteredPlaylists.chunked(2)
                         itemsIndexed(
                             items = chunkedPlaylists,
@@ -531,7 +626,7 @@ fun PlaylistScreen(
                         ) { _, rowItems ->
                             Row(
                                 modifier = Modifier.fillMaxWidth().animateItem(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 rowItems.forEach { playlist ->
                                     val isThisPlaylistPlaying = playbackState.isPlaying &&
@@ -542,16 +637,17 @@ fun PlaylistScreen(
                                         }
                                     val isSelected = selectedPlaylists.contains(playlist.id)
                                     val isRegenerating = state.regeneratingId == playlist.id
+                                    val trackCount = playlist.remoteTrackCount ?: playlist.tracks.size
                                     Column(modifier = Modifier.weight(1f)) {
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .aspectRatio(1f)
                                                 .clip(RoundedCornerShape(14.dp))
-                                                .then(
-                                                    if (isSelected) {
-                                                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
-                                                    } else Modifier
+                                                .border(
+                                                    width = if (isSelected) 2.dp else 0.5.dp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.White.copy(alpha = 0.08f),
+                                                    shape = RoundedCornerShape(14.dp),
                                                 )
                                                 .combinedClickable(
                                                     onClick = {
@@ -577,6 +673,32 @@ fun PlaylistScreen(
                                                 com.lastwave.app.ui.player.PlayingWaveBars(
                                                     Modifier.align(Alignment.BottomEnd).padding(8.dp).size(26.dp, 20.dp),
                                                 )
+                                            } else if (playlist.tracks.isNotEmpty()) {
+                                                Surface(
+                                                    onClick = {
+                                                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.ContextClick)
+                                                        musicPlayer.playQueue(
+                                                            playlist.tracks.map(GeneratedTrack::toPlayableTrack),
+                                                            startIndex = 0,
+                                                            sourceLabel = playlist.title,
+                                                        )
+                                                    },
+                                                    shape = CircleShape,
+                                                    color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                                                    contentColor = androidx.compose.ui.graphics.Color.White,
+                                                    modifier = Modifier
+                                                        .align(Alignment.BottomEnd)
+                                                        .padding(8.dp)
+                                                        .size(32.dp),
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(
+                                                            imageVector = Icons.Filled.PlayArrow,
+                                                            contentDescription = "Play ${playlist.title}",
+                                                            modifier = Modifier.size(18.dp),
+                                                        )
+                                                    }
+                                                }
                                             }
                                             if (isRegenerating) {
                                                 Surface(
@@ -593,14 +715,34 @@ fun PlaylistScreen(
                                                 }
                                             }
                                         }
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),
+                                        ) {
+                                            if (playlist.isPinned) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.PushPin,
+                                                    contentDescription = "Pinned",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(12.dp).padding(end = 3.dp),
+                                                )
+                                            }
+                                            Text(
+                                                text = playlist.title,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                        }
                                         Text(
-                                            text = playlist.title,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.onSurface,
+                                            text = "$trackCount songs",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.padding(top = 5.dp, start = 2.dp, end = 2.dp),
+                                            modifier = Modifier.padding(start = 2.dp),
                                         )
                                     }
                                 }
@@ -608,6 +750,7 @@ fun PlaylistScreen(
                                     Spacer(Modifier.weight(1f))
                                 }
                             }
+                        }
                         }
 
                         if (searchQuery.isNotBlank()) {
