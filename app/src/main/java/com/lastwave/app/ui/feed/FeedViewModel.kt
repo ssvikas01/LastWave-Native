@@ -54,6 +54,9 @@ data class FeedUiState(
     val launchingRadio: String? = null,
     val error: String? = null,
     val avatarUrl: String? = null,
+    val statsScrobbles: Long = 0L,
+    val statsTracks: Long = 0L,
+    val statsArtists: Long = 0L,
     val feedData: FeedData = FeedData(),
     val lastCompletedFeed: FeedData? = null,
     val freshPagedShelfTitles: Set<String> = emptySet(),
@@ -213,9 +216,14 @@ class FeedViewModel @Inject constructor(
         }
         viewModelScope.launch {
             val stats = runCatching { homeRepository.fetchStats().getOrNull() }.getOrNull()
-            if (stats?.avatarUrl != null) {
+            if (stats != null) {
                 _uiState.update { current ->
-                    if (current.avatarUrl.isNullOrBlank()) current.copy(avatarUrl = stats.avatarUrl) else current
+                    current.copy(
+                        avatarUrl = if (current.avatarUrl.isNullOrBlank()) stats.avatarUrl else current.avatarUrl,
+                        statsScrobbles = stats.scrobbles,
+                        statsTracks = stats.trackCount,
+                        statsArtists = stats.artistCount,
+                    )
                 }
             }
         }
@@ -355,8 +363,13 @@ class FeedViewModel @Inject constructor(
                     sessionPreferences.session.value.username.takeIf(String::isNotBlank) == username
                 ) {
                     _uiState.update { current ->
-                        if (current.avatarUrl.isNullOrBlank() && stats?.avatarUrl != null) {
-                            current.copy(avatarUrl = stats.avatarUrl)
+                        if (stats != null) {
+                            current.copy(
+                                avatarUrl = if (current.avatarUrl.isNullOrBlank()) stats.avatarUrl else current.avatarUrl,
+                                statsScrobbles = stats.scrobbles,
+                                statsTracks = stats.trackCount,
+                                statsArtists = stats.artistCount,
+                            )
                         } else {
                             current
                         }

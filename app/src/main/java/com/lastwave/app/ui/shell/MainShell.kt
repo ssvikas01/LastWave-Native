@@ -458,6 +458,15 @@ fun MainShell(
                             onOpenPodcasts = onOpenPodcasts,
                             onOpenPodcastShow = onOpenPodcastShow,
                             onOpenYouTubeLogin = onOpenYouTubeLogin,
+                            onOpenStats = {
+                                val statsIdx = tabs.indexOf(MainTab.STATS)
+                                if (statsIdx >= 0) {
+                                    selectedTabIndex = statsIdx
+                                    scope.launch { pagerState.animateScrollToPage(statsIdx) }
+                                } else {
+                                    onOpenListeningStats()
+                                }
+                            },
                             feedTapEvents = feedTapEvents,
                         )
                         MainTab.STATS -> HomeScreen(

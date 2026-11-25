@@ -2,11 +2,17 @@ package com.lastwave.app.ui.feed
 
 import androidx.activity.compose.BackHandler
 import com.lastwave.app.playback.toPlayableTrack
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -190,6 +196,80 @@ private fun LazyListScope.feedSectionItem(
 
 
 
+@Composable
+internal fun FlowingArtworkTopGlow(
+    artworkUrl: String?,
+    modifier: Modifier = Modifier,
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "artworkTopGlow")
+    val driftX by infiniteTransition.animateFloat(
+        initialValue = -28f,
+        targetValue = 28f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 7000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "driftX",
+    )
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1.15f,
+        targetValue = 1.32f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 5500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "pulseScale",
+    )
+    val bgColor = MaterialTheme.colorScheme.background
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(260.dp)
+            .clipToBounds(),
+    ) {
+        if (!artworkUrl.isNullOrBlank()) {
+            coil.compose.AsyncImage(
+                model = artworkUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alpha = 0.58f,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = pulseScale
+                        scaleY = pulseScale
+                        translationX = driftX
+                    }
+                    .blur(38.dp),
+            )
+        } else {
+            val fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(fallbackColor, fallbackColor.copy(alpha = 0.08f), androidx.compose.ui.graphics.Color.Transparent),
+                        ),
+                    ),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0.0f to androidx.compose.ui.graphics.Color.Transparent,
+                        0.45f to bgColor.copy(alpha = 0.45f),
+                        0.85f to bgColor.copy(alpha = 0.90f),
+                        1.0f to bgColor,
+                    ),
+                ),
+        )
+    }
+}
+
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
@@ -207,6 +287,7 @@ fun FeedScreen(
     onOpenPodcasts: () -> Unit = {},
     onOpenPodcastShow: (String) -> Unit = {},
     onOpenYouTubeLogin: () -> Unit = {},
+    onOpenStats: () -> Unit = {},
     feedTapEvents: SharedFlow<Unit>? = null,
     viewModel: FeedViewModel = hiltViewModel(),
     artistAlbumNavigator: ArtistAlbumNavigator = hiltViewModel<ArtistAlbumNavBridgeFeed>().navigator,
@@ -344,6 +425,10 @@ fun FeedScreen(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter,
     ) {
+        FlowingArtworkTopGlow(
+            artworkUrl = playbackState.current?.artworkUrl,
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
         if (isPodcastsActive) {
             com.lastwave.app.ui.feed.cards.PodcastHeroBackground(
                 backgroundUrl = state.chipBackgroundUrl,
@@ -549,7 +634,8 @@ fun FeedScreen(
                 }
 
                 val remainingNativeShelves = remember(state.feedData.nativeShelves, ytNewReleasesShelf, ytQuickPicksShelf, allHiddenIds, ytHidden) {
-                    val junkFeedKeywords = listOf("artist for you", "mixes to explore", "new release song mixes", "dancing on your own", "feel good", "romance", "party", "relax", "workout", "focus", "energize", "for you", "mixed for you")
+                    val allowedShelves = listOf("quick picks", "listen again", "forgotten favorites", "from your library", "speed dial", "your favorites", "keep listening")
+                    val junkFeedKeywords = listOf("short", "featured", "playlist", "mood", "genre", "podcast", "video", "chart", "trend", "community", "cover", "remix", "live", "new release", "mix", "for you", "artist", "dancing")
                     state.feedData.nativeShelves.filter { shelf ->
                         val titleLower = shelf.title.lowercase()
                         shelf !== ytNewReleasesShelf &&
@@ -557,6 +643,7 @@ fun FeedScreen(
                             shelf.items.isNotEmpty() &&
                             !isSectionIdHidden("yt:${shelf.title}") &&
                             !isShelfTitleHidden(shelf.title) &&
+                            allowedShelves.any { titleLower.contains(it) } &&
                             junkFeedKeywords.none { titleLower.contains(it) }
                     }
                 }
@@ -611,24 +698,9 @@ fun FeedScreen(
 
                 val isSectionAvailable: (String) -> Boolean = { key ->
                     when {
-                        key == "hero_greeting" || key == "infinite_radio" || key == "quick_tiles" -> false
-                        key == "taste_strip" -> showSynthetic && displayTags.isNotEmpty()
-                        key == "discover_new_music" -> showSynthetic && (discoveryTracks.isNotEmpty() || hasShownDiscovery)
-                        key == "preview_queues" -> showSynthetic && previewQueues.isNotEmpty()
                         key == "quick_picks" -> showSynthetic && combinedQuickPicks.isNotEmpty()
-                        key == "because_you_listen_to" -> showSynthetic && state.feedData.becauseYouListenTo?.items?.isNotEmpty() == true
-                        key == "fresh_finds" -> showSynthetic && state.feedData.freshFinds.isNotEmpty()
                         key == "jump_back_in" -> showSynthetic && state.feedData.jumpBackIn.isNotEmpty()
-                        key == "mixed_for_you" || key == "mixes" -> showSynthetic && state.feedData.mixes.isNotEmpty()
-                        key == "spotlight_hero" || key == "spotlight" -> showSynthetic && state.feedData.spotlight != null
-                        key == "top_artists" -> showSynthetic && individualTopArtists.isNotEmpty()
                         key == "heavy_rotation" -> showSynthetic && state.feedData.heavyRotation.isNotEmpty()
-                        key == "albums_in_rotation" || key == "albums" -> showSynthetic && state.feedData.recentAlbums.isNotEmpty()
-                        key == "trending_charts" || key == "charts" -> showSynthetic && state.feedData.charts.isNotEmpty()
-                        key == "new_releases" -> showSynthetic && combinedNewReleases.isNotEmpty()
-                        key == "friends_activity" || key == "friends" -> state.feedData.friends.isNotEmpty()
-                        key == "podcast_shelf" || key == "podcasts" -> showSynthetic && podcastsEnabled && state.feedData.podcastShows.isNotEmpty()
-                        key == "moods_and_genres" -> true
                         key.startsWith("yt:") -> resolveNativeShelf(key) != null
                         else -> false
                     }
@@ -894,43 +966,53 @@ fun FeedScreen(
                                 HomeContainerSection(
                                     shape = quickTilesShape,
                                 ) {
-                                    val quickAccessTitle = stringResource(R.string.feed_quick_access)
-                                    FeedSectionHeader(
-                                        title = quickAccessTitle,
-                                        onLongClick = { sectionMenuTarget = "quick_tiles" to quickAccessTitle },
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    if (quickTiles.isEmpty()) QuickTilesLoadingSkeleton() else QuickTilesGrid(
-                                        tiles = quickTiles,
-                                        onTileClick = { tile ->
-                                            when {
-                                                tile.collection == "radio" -> onOpenDiscover()
-                                                tile.collection == "discover_mix" || tile.title.contains("Discover Mix", ignoreCase = true) -> {
-                                                    if (!tile.playlistId.isNullOrBlank()) {
-                                                        onOpenFeedPlaylist(tile.playlistId)
-                                                    } else {
-                                                        viewModel.openDiscoverMixPlaylist(tile) { resolvedId ->
-                                                            onOpenFeedPlaylist(resolvedId)
-                                                        }
-                                                    }
+                                    Surface(
+                                        onClick = onOpenStats,
+                                        shape = RoundedCornerShape(18.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "Listening Stats",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                )
+                                                Spacer(Modifier.height(4.dp))
+                                                val statsLine = if (state.statsScrobbles > 0) {
+                                                    "${state.statsScrobbles} plays • ${state.statsTracks} tracks • ${state.statsArtists} artists"
+                                                } else {
+                                                    "Tap to view your listening history & top tracks"
                                                 }
-                                                tile.collection == "mix" -> onOpenGenerator()
-                                                tile.collection == "my_mix" -> {
-                                                    if (tile.playlistId != null) {
-                                                        viewModel.playPlaylistById(tile.playlistId, tile.title)
-                                                    } else {
-                                                        viewModel.playInfiniteRadio()
-                                                    }
-                                                }
-                                                tile.collection == "yt_liked" || tile.playlistId == "yt_liked" -> onOpenFeedPlaylist("yt_liked")
-                                                tile.collection == "yt_recent" || tile.playlistId == "yt_recent" -> onOpenFeedPlaylist("yt_recent")
-                                                tile.collection == "new_releases" -> onOpenNewReleases()
-                                                tile.localPlaylistId != null -> onOpenPlaylist(tile.localPlaylistId)
-                                                tile.playlistId != null -> onOpenFeedPlaylist(tile.playlistId)
-                                                else -> viewModel.handleQuickTileClick(tile)
+                                                Text(
+                                                    text = statsLine,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                )
                                             }
-                                        },
-                                    )
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                            ) {
+                                                Text(
+                                                    text = "Stats →",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

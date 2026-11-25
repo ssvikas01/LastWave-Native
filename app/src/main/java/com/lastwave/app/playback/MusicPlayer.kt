@@ -1904,6 +1904,7 @@ class MusicPlayer @Inject constructor(
             // Addon DASH segments are 10 s, so CLOSEST_SYNC could land seconds early.
             .setSeekParameters(SeekParameters.EXACT)
             .build().apply {
+                pauseAtEndOfMediaItems = false
                 musicHapticsController.registerPlayerTaps(this, hapticTaps)
                 // Feed ReplayGain container tags into loudness normalization.
                 // Additive listener: never touches playback, 0 dB without tags.
@@ -2334,7 +2335,7 @@ class MusicPlayer @Inject constructor(
                     // advances, not just fades.
                     if (player.isPlaying && outgoingPlayer == null && preloadJob?.isActive != true) {
                         val nowMs = SystemClock.elapsedRealtime()
-                        if (nowMs - lastPreloadRetryMs >= 30_000L) {
+                        if (nowMs - lastPreloadRetryMs >= 10_000L) {
                             val upcomingIndex = player.nextMediaItemIndex
                             if (upcomingIndex != C.INDEX_UNSET &&
                                 upcomingIndex in 0 until player.mediaItemCount &&

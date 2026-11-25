@@ -225,6 +225,10 @@ fun PlaylistScreen(
     var showMultipleDeleteConfirm by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        com.lastwave.app.ui.feed.FlowingArtworkTopGlow(
+            artworkUrl = playbackState.current?.artworkUrl,
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
         Column(
             Modifier
                 .fillMaxSize()
@@ -411,18 +415,6 @@ fun PlaylistScreen(
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
             ) {
-                // Vikas Music: Flowing ambient artwork glow bleed
-                val topGlowColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(220.dp)
-                        .background(
-                            androidx.compose.ui.graphics.Brush.verticalGradient(
-                                listOf(topGlowColor, topGlowColor.copy(alpha = 0.08f), androidx.compose.ui.graphics.Color.Transparent)
-                            )
-                        )
-                )
                 when {
                     state.isLoading && state.playlists.isEmpty() && !state.isGenerating -> LoadingState()
                     !hasHeroRow && filteredPlaylists.isEmpty() && !state.isGenerating &&
