@@ -549,12 +549,15 @@ fun FeedScreen(
                 }
 
                 val remainingNativeShelves = remember(state.feedData.nativeShelves, ytNewReleasesShelf, ytQuickPicksShelf, allHiddenIds, ytHidden) {
+                    val junkFeedKeywords = listOf("artist for you", "mixes to explore", "new release song mixes", "dancing on your own", "feel good", "romance", "party", "relax", "workout", "focus", "energize", "for you", "mixed for you")
                     state.feedData.nativeShelves.filter { shelf ->
+                        val titleLower = shelf.title.lowercase()
                         shelf !== ytNewReleasesShelf &&
                             shelf !== ytQuickPicksShelf &&
                             shelf.items.isNotEmpty() &&
                             !isSectionIdHidden("yt:${shelf.title}") &&
-                            !isShelfTitleHidden(shelf.title)
+                            !isShelfTitleHidden(shelf.title) &&
+                            junkFeedKeywords.none { titleLower.contains(it) }
                     }
                 }
 
