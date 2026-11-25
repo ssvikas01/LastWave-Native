@@ -408,7 +408,7 @@ internal fun MiniPlayer(
     }
     val threshold = with(LocalDensity.current) { 72.dp.toPx() }
     val isTablet = isTabletOrWideScreen()
-    val shape = if (edgeToEdge && !isTablet) RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp) else RoundedCornerShape(100)
+    val shape = RoundedCornerShape(14.dp)
     val positionedModifier = if (isGlass && edgeToEdge && !isTablet) {
         modifier.fillMaxWidth()
     } else {
