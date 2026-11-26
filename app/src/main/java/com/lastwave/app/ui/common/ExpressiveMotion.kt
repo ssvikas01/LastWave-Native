@@ -26,24 +26,24 @@ import androidx.compose.ui.graphics.graphicsLayer
 
 /** Shared, restrained Material 3 Expressive motion language for the app. */
 object ExpressiveMotion {
-    const val Quick = 160
-    const val Standard = 300
-    const val Emphasized = 440
+    const val Quick = 120
+    const val Standard = 220
+    const val Emphasized = 300
 
-    // Spatial springs: overshoot and bounce for layout and scale transitions
+    // Spatial springs: snappy & fluid for 120Hz panels
     fun <T> spatialFast() = spring<T>(
-        dampingRatio = 0.75f,
-        stiffness = Spring.StiffnessMedium, // 1500f: immediate, tactile button feedback (~180ms)
+        dampingRatio = 0.80f,
+        stiffness = Spring.StiffnessMedium,
     )
 
     fun <T> spatialDefault() = spring<T>(
-        dampingRatio = 0.8f,
-        stiffness = 650f, // Snappy & fluid Material 3 expressive motion (~280ms)
+        dampingRatio = 0.84f,
+        stiffness = 850f,
     )
 
     fun <T> spatialSlow() = spring<T>(
-        dampingRatio = 0.85f,
-        stiffness = Spring.StiffnessMediumLow, // 400f
+        dampingRatio = 0.86f,
+        stiffness = 520f,
     )
 
     // Legacy alias
@@ -52,43 +52,39 @@ object ExpressiveMotion {
     // Effects springs: no overshoot (for alpha, color)
     fun <T> effectsFast() = spring<T>(
         dampingRatio = Spring.DampingRatioNoBouncy,
-        stiffness = Spring.StiffnessMedium, // 1500f
+        stiffness = Spring.StiffnessMedium,
     )
 
     fun <T> effectsDefault() = spring<T>(
         dampingRatio = Spring.DampingRatioNoBouncy,
-        stiffness = 700f, // Clean fade without sluggish trailing (~250ms)
+        stiffness = 900f,
     )
 
     fun <T> effectsSlow() = spring<T>(
         dampingRatio = Spring.DampingRatioNoBouncy,
-        stiffness = Spring.StiffnessMediumLow, // 400f
+        stiffness = 520f,
     )
 
     // Legacy alias
     fun <T> smoothSpring() = effectsDefault<T>()
 
-    // Screen transitions in the same language as the player open/close
-    // morph: the incoming screen grows into place from slightly smaller while
-    // the one it covers recedes a touch; going back reverses it. A short
-    // horizontal drift keeps the forward/back direction readable.
     fun forwardEnter(): EnterTransition =
         fadeIn(effectsDefault()) +
-            scaleIn(spatialDefault(), initialScale = 0.92f) +
-            slideInHorizontally(spatialDefault()) { it / 24 }
+            scaleIn(spatialDefault(), initialScale = 0.95f) +
+            slideInHorizontally(spatialDefault()) { it / 16 }
 
     fun forwardExit(): ExitTransition =
         fadeOut(effectsDefault()) +
-            scaleOut(effectsDefault(), targetScale = 0.95f)
+            scaleOut(effectsDefault(), targetScale = 0.96f)
 
     fun backEnter(): EnterTransition =
         fadeIn(effectsDefault()) +
-            scaleIn(spatialDefault(), initialScale = 0.95f)
+            scaleIn(spatialDefault(), initialScale = 0.96f)
 
     fun backExit(): ExitTransition =
         fadeOut(effectsFast()) +
-            scaleOut(effectsDefault(), targetScale = 0.92f) +
-            slideOutHorizontally(spatialDefault()) { it / 24 }
+            scaleOut(effectsDefault(), targetScale = 0.95f) +
+            slideOutHorizontally(spatialDefault()) { it / 16 }
 }
 
 /**

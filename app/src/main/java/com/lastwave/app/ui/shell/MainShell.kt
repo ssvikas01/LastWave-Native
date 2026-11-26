@@ -421,7 +421,7 @@ fun MainShell(
         if (allTabs) LaunchedEffect(Unit) { composeAllTabs = true }
         HorizontalPager(
             state = pagerState,
-            beyondViewportPageCount = if (allTabs) tabs.size - 1 else 0,
+            beyondViewportPageCount = (tabs.size - 1).coerceAtLeast(0),
             modifier = Modifier.fillMaxSize()
                 .then(if (chromeCollapse != null) Modifier.nestedScroll(chromeCollapse.connection) else Modifier)
                 .then(
