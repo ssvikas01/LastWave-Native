@@ -3,12 +3,17 @@ package com.lastwave.app.ui.playlist
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.background
@@ -40,6 +45,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -228,8 +238,25 @@ fun PlaylistScreen(
     var menuTarget by remember { mutableStateOf<Pair<Long, GeneratedTrack>?>(null) }
     var selectedPlaylists by remember { mutableStateOf(setOf<Long>()) }
     var showMultipleDeleteConfirm by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    var isSearchBarVisible by remember { mutableStateOf(true) }
+    val searchBarNestedScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -8f && searchQuery.isEmpty()) {
+                    isSearchBarVisible = false
+                } else if (available.y > 8f) {
+                    isSearchBarVisible = true
+                }
+                return Offset.Zero
+            }
+        }
+    }
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotEmpty()) isSearchBarVisible = true
+    }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().nestedScroll(searchBarNestedScroll)) {
         com.lastwave.app.ui.feed.FlowingArtworkTopGlow(
             artworkUrl = playbackState.current?.artworkUrl,
             modifier = Modifier.align(Alignment.TopCenter),
@@ -254,6 +281,20 @@ fun PlaylistScreen(
                 },
                 actions = {
                     if (selectedPlaylists.isNotEmpty()) {
+                        val anyUnpinned = state.playlists.any { it.id in selectedPlaylists && !it.isPinned }
+                        IconButton(
+                            onClick = {
+                                viewModel.setPinnedMultiple(selectedPlaylists, pin = anyUnpinned)
+                                selectedPlaylists = setOf()
+                            },
+                            modifier = Modifier.size(40.dp),
+                        ) {
+                            Icon(
+                                Icons.Filled.PushPin,
+                                contentDescription = if (anyUnpinned) "Pin to top" else "Unpin",
+                                tint = if (anyUnpinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         IconButton(
                             onClick = { showMultipleDeleteConfirm = true },
                             modifier = Modifier.size(40.dp),
@@ -319,63 +360,75 @@ fun PlaylistScreen(
                 },
             )
 
-            // Compact low-profile translucent search pill
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .height(42.dp),
+            // Compact low-profile translucent search pill (hides on scroll down, shows on scroll up)
+            AnimatedVisibility(
+                visible = isSearchBarVisible || searchQuery.isNotEmpty(),
+                enter = expandVertically(
+                    animationSpec = spring(dampingRatio = 0.9f, stiffness = 700f),
+                    expandFrom = Alignment.Top,
+                ) + fadeIn(animationSpec = tween(150)),
+                exit = shrinkVertically(
+                    animationSpec = spring(dampingRatio = 0.9f, stiffness = 700f),
+                    shrinkTowards = Alignment.Top,
+                ) + fadeOut(animationSpec = tween(120)),
             ) {
-                Row(
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f),
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .height(42.dp),
                 ) {
-                    Icon(
-                        Icons.Filled.Search,
-                        contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Box(
-                        modifier = Modifier.weight(1f),
-                        contentAlignment = Alignment.CenterStart,
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (searchQuery.isEmpty()) {
-                            Text(
-                                "Search songs, artists, albums, playlists...",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                        Icon(
+                            Icons.Filled.Search,
+                            contentDescription = "Search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    "Search songs, artists, albums, playlists...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            androidx.compose.foundation.text.BasicTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                ),
+                                cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                        androidx.compose.foundation.text.BasicTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface,
-                            ),
-                            cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(
-                            onClick = { searchQuery = "" },
-                            modifier = Modifier.size(28.dp),
-                        ) {
-                            Icon(
-                                Icons.Filled.Clear,
-                                contentDescription = "Clear",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp),
-                            )
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.size(28.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Clear,
+                                    contentDescription = "Clear",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -467,6 +520,7 @@ fun PlaylistScreen(
                     searchQuery.isBlank() && !hasHeroRow && filteredPlaylists.isEmpty() && !state.isGenerating &&
                         effectiveSpotify.isEmpty() -> EmptyState()
                     else -> LazyColumn(
+                        state = listState,
                         contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = FloatingNavDefaults.contentBottomPadding()),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth(),
@@ -720,9 +774,10 @@ fun PlaylistScreen(
                                                 }
                                             }
                                         }
+                                        var cardMenuExpanded by remember(playlist.id) { mutableStateOf(false) }
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),
+                                            modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 0.dp),
                                         ) {
                                             if (playlist.isPinned) {
                                                 Icon(
@@ -741,6 +796,84 @@ fun PlaylistScreen(
                                                 overflow = TextOverflow.Ellipsis,
                                                 modifier = Modifier.weight(1f),
                                             )
+                                            Box {
+                                                IconButton(
+                                                    onClick = { cardMenuExpanded = true },
+                                                    modifier = Modifier.size(24.dp),
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.MoreVert,
+                                                        contentDescription = "Playlist options",
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(16.dp),
+                                                    )
+                                                }
+                                                DropdownMenu(
+                                                    expanded = cardMenuExpanded,
+                                                    onDismissRequest = { cardMenuExpanded = false },
+                                                    shape = RoundedCornerShape(18.dp),
+                                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                ) {
+                                                    DropdownMenuItem(
+                                                        text = { Text(if (playlist.isPinned) "Unpin from top" else "Pin to top") },
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                Icons.Filled.PushPin,
+                                                                contentDescription = null,
+                                                                tint = if (playlist.isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            )
+                                                        },
+                                                        onClick = {
+                                                            cardMenuExpanded = false
+                                                            viewModel.togglePinned(playlist.id)
+                                                        },
+                                                    )
+                                                    if (playlist.tracks.isNotEmpty()) {
+                                                        DropdownMenuItem(
+                                                            text = { Text("Play") },
+                                                            leadingIcon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
+                                                            onClick = {
+                                                                cardMenuExpanded = false
+                                                                musicPlayer.playQueue(
+                                                                    playlist.tracks.map(GeneratedTrack::toPlayableTrack),
+                                                                    startIndex = 0,
+                                                                    sourceLabel = playlist.title,
+                                                                )
+                                                            },
+                                                        )
+                                                    }
+                                                    DropdownMenuItem(
+                                                        text = { Text("Rename") },
+                                                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                                                        onClick = {
+                                                            cardMenuExpanded = false
+                                                            viewModel.openRename(playlist.id)
+                                                        },
+                                                    )
+                                                    DropdownMenuItem(
+                                                        text = { Text("Change cover") },
+                                                        leadingIcon = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
+                                                        onClick = {
+                                                            cardMenuExpanded = false
+                                                            coverEditorPlaylistId = playlist.id
+                                                        },
+                                                    )
+                                                    DropdownMenuItem(
+                                                        text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                                        leadingIcon = {
+                                                            Icon(
+                                                                Icons.Filled.Delete,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.error,
+                                                            )
+                                                        },
+                                                        onClick = {
+                                                            cardMenuExpanded = false
+                                                            viewModel.requestDelete(playlist.id)
+                                                        },
+                                                    )
+                                                }
+                                            }
                                         }
                                         Text(
                                             text = "$trackCount songs",
@@ -759,35 +892,32 @@ fun PlaylistScreen(
                         }
 
                         if (searchQuery.isNotBlank()) {
-                            val matchingSongs = remember(state.playlists, searchQuery) {
-                                val tokens = searchQuery.trim().lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
-                                state.playlists
+                            val normalizedQuery = remember(searchQuery) { normalizeSearchText(searchQuery) }
+                            val matchingSongs = remember(state.playlists, normalizedQuery) {
+                                val tokens = normalizedQuery.split(Regex("\\s+")).filter { it.isNotBlank() }
+                                if (tokens.isEmpty()) emptyList()
+                                else state.playlists
                                     .flatMap { pl ->
-                                        pl.tracks.filter { t ->
-                                            val haystack = "${t.name} ${t.artist} ${t.album.orEmpty()} ${pl.title}".lowercase()
-                                            tokens.all { tok -> haystack.contains(tok) }
-                                        }.map { t -> pl.title to t }
+                                        pl.tracks.mapNotNull { t ->
+                                            val nameNorm = normalizeSearchText(t.name)
+                                            val artistNorm = normalizeSearchText(t.artist)
+                                            val albumNorm = normalizeSearchText(t.album.orEmpty())
+                                            val plNorm = normalizeSearchText(pl.title)
+                                            val haystack = "$nameNorm $artistNorm $albumNorm $plNorm"
+                                            if (tokens.all { tok -> haystack.contains(tok) }) {
+                                                val score = when {
+                                                    nameNorm.startsWith(normalizedQuery) || artistNorm.startsWith(normalizedQuery) -> 0
+                                                    nameNorm.contains(normalizedQuery) || artistNorm.contains(normalizedQuery) -> 1
+                                                    else -> 2
+                                                }
+                                                Triple(score, pl.title, t)
+                                            } else null
+                                        }
                                     }
-                                    .distinctBy { (_, t) -> "${t.name.lowercase()}|${t.artist.lowercase()}" }
-                                    .take(40)
-                            }
-
-                            if (state.isIndexingTracks && matchingSongs.isEmpty() && filteredPlaylists.isEmpty()) {
-                                item(key = "library_indexing_hint") {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        com.lastwave.app.ui.common.ExpressiveInlineLoadingIndicator(size = 20.dp)
-                                        Spacer(Modifier.width(10.dp))
-                                        Text(
-                                            text = "Indexing songs across your playlists...",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }
+                                    .sortedBy { it.first }
+                                    .distinctBy { (_, _, t) -> "${t.name.lowercase()}|${t.artist.lowercase()}" }
+                                    .map { (_, plTitle, t) -> plTitle to t }
+                                    .take(60)
                             }
 
                             if (matchingSongs.isNotEmpty()) {
@@ -853,6 +983,43 @@ fun PlaylistScreen(
                                                 )
                                             }
                                         }
+                                    }
+                                }
+                            }
+
+                            if (state.isIndexingTracks) {
+                                item(key = "library_indexing_hint") {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        com.lastwave.app.ui.common.ExpressiveInlineLoadingIndicator(size = 20.dp)
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(
+                                            text = "Indexing songs across your playlists...",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            } else if (matchingSongs.isEmpty() && filteredPlaylists.isEmpty() && effectiveSpotify.isEmpty()) {
+                                item(key = "library_search_empty") {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 36.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    ) {
+                                        Text(
+                                            text = "No matches for \"${searchQuery.trim()}\"",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            text = "Try a different song, artist, album, or playlist name",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
                                     }
                                 }
                             }
@@ -1038,13 +1205,21 @@ fun PlaylistScreen(
     }
 }
 
+private fun normalizeSearchText(text: String): String {
+    if (text.isBlank()) return ""
+    val decomposed = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+    return decomposed.replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "").lowercase().trim()
+}
+
 private fun SavedPlaylist.matchesPlaylistSearch(query: String): Boolean {
     if (query.isBlank()) return true
-    val tokens = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
-    val titleLower = title.lowercase()
+    val normalizedQuery = normalizeSearchText(query)
+    val tokens = normalizedQuery.split(Regex("\\s+")).filter { it.isNotBlank() }
+    if (tokens.isEmpty()) return true
+    val titleLower = normalizeSearchText(title)
     if (tokens.all { titleLower.contains(it) }) return true
     return tracks.any { t ->
-        val haystack = "${t.name} ${t.artist} ${t.album.orEmpty()} $title".lowercase()
+        val haystack = normalizeSearchText("${t.name} ${t.artist} ${t.album.orEmpty()} $title")
         tokens.all { haystack.contains(it) }
     }
 }
