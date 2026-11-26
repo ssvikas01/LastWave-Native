@@ -475,6 +475,36 @@ fun PlaylistScreen(
             val heroCardCount = (if (localSongsPlaylist != null) 1 else 0) + (if (showDownloadsCard) 1 else 0)
             val totalPlaylistCount = effectiveSpotify.size + filteredPlaylists.size
             val hasItemsBelow = totalPlaylistCount > 0
+            val normalizedQuery = remember(searchQuery) { normalizeSearchText(searchQuery) }
+            val matchingSongs = remember(state.playlists, normalizedQuery) {
+                if (normalizedQuery.isBlank()) emptyList()
+                else {
+                    val tokens = normalizedQuery.split(Regex("\\s+")).filter { it.isNotBlank() }
+                    if (tokens.isEmpty()) emptyList()
+                    else state.playlists
+                        .flatMap { pl ->
+                            pl.tracks.mapNotNull { t ->
+                                val nameNorm = normalizeSearchText(t.name)
+                                val artistNorm = normalizeSearchText(t.artist)
+                                val albumNorm = normalizeSearchText(t.album.orEmpty())
+                                val plNorm = normalizeSearchText(pl.title)
+                                val haystack = "$nameNorm $artistNorm $albumNorm $plNorm"
+                                if (tokens.all { tok -> haystack.contains(tok) }) {
+                                    val score = when {
+                                        nameNorm.startsWith(normalizedQuery) || artistNorm.startsWith(normalizedQuery) -> 0
+                                        nameNorm.contains(normalizedQuery) || artistNorm.contains(normalizedQuery) -> 1
+                                        else -> 2
+                                    }
+                                    Triple(score, pl.title, t)
+                                } else null
+                            }
+                        }
+                        .sortedBy { it.first }
+                        .distinctBy { (_, _, t) -> "${t.name.lowercase()}|${t.artist.lowercase()}" }
+                        .map { (_, plTitle, t) -> plTitle to t }
+                        .take(60)
+                }
+            }
 
             Box(
                 modifier = Modifier
@@ -847,7 +877,7 @@ fun PlaylistScreen(
                                                         leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
                                                         onClick = {
                                                             cardMenuExpanded = false
-                                                            viewModel.openRename(playlist.id)
+                                                            viewModel.requestRename(playlist.id)
                                                         },
                                                     )
                                                     DropdownMenuItem(
@@ -892,34 +922,6 @@ fun PlaylistScreen(
                         }
 
                         if (searchQuery.isNotBlank()) {
-                            val normalizedQuery = remember(searchQuery) { normalizeSearchText(searchQuery) }
-                            val matchingSongs = remember(state.playlists, normalizedQuery) {
-                                val tokens = normalizedQuery.split(Regex("\\s+")).filter { it.isNotBlank() }
-                                if (tokens.isEmpty()) emptyList()
-                                else state.playlists
-                                    .flatMap { pl ->
-                                        pl.tracks.mapNotNull { t ->
-                                            val nameNorm = normalizeSearchText(t.name)
-                                            val artistNorm = normalizeSearchText(t.artist)
-                                            val albumNorm = normalizeSearchText(t.album.orEmpty())
-                                            val plNorm = normalizeSearchText(pl.title)
-                                            val haystack = "$nameNorm $artistNorm $albumNorm $plNorm"
-                                            if (tokens.all { tok -> haystack.contains(tok) }) {
-                                                val score = when {
-                                                    nameNorm.startsWith(normalizedQuery) || artistNorm.startsWith(normalizedQuery) -> 0
-                                                    nameNorm.contains(normalizedQuery) || artistNorm.contains(normalizedQuery) -> 1
-                                                    else -> 2
-                                                }
-                                                Triple(score, pl.title, t)
-                                            } else null
-                                        }
-                                    }
-                                    .sortedBy { it.first }
-                                    .distinctBy { (_, _, t) -> "${t.name.lowercase()}|${t.artist.lowercase()}" }
-                                    .map { (_, plTitle, t) -> plTitle to t }
-                                    .take(60)
-                            }
-
                             if (matchingSongs.isNotEmpty()) {
                                 item(key = "library_matching_songs_header") {
                                     Text(
