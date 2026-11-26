@@ -1022,6 +1022,19 @@ fun FeedScreen(
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     )
                                                 }
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Text(
+                                                        text = if (state.statsAlbums > 0) "${state.statsAlbums}" else "—",
+                                                        style = MaterialTheme.typography.titleLarge,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                    )
+                                                    Text(
+                                                        text = "Albums",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    )
+                                                }
                                                 Column(horizontalAlignment = Alignment.End) {
                                                     Text(
                                                         text = if (state.statsArtists > 0) "${state.statsArtists}" else "—",

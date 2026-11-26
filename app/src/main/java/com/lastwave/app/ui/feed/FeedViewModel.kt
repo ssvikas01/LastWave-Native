@@ -56,6 +56,7 @@ data class FeedUiState(
     val avatarUrl: String? = null,
     val statsScrobbles: Long = 0L,
     val statsTracks: Long = 0L,
+    val statsAlbums: Long = 0L,
     val statsArtists: Long = 0L,
     val feedData: FeedData = FeedData(),
     val lastCompletedFeed: FeedData? = null,
@@ -91,6 +92,7 @@ class FeedViewModel @Inject constructor(
     private val recommendationRepository: RecommendationRepository,
     private val ytAuth: YtMusicAuthManager,
     private val homeRepository: com.lastwave.app.data.repository.HomeRepository,
+    private val localStatsRepository: com.lastwave.app.data.repository.LocalStatsRepository,
     private val discoverRepository: com.lastwave.app.data.discover.DiscoverRepository,
     private val genresRepository: com.lastwave.app.data.generate.GenresRepository,
     private val previewQueueRepository: com.lastwave.app.data.queue.PreviewQueueRepository? = null,
@@ -215,17 +217,27 @@ class FeedViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            val stats = runCatching { homeRepository.fetchStats().getOrNull() }.getOrNull()
+            val stats = resolveStats()
             if (stats != null) {
                 _uiState.update { current ->
                     current.copy(
                         avatarUrl = if (current.avatarUrl.isNullOrBlank()) stats.avatarUrl else current.avatarUrl,
                         statsScrobbles = stats.scrobbles,
                         statsTracks = stats.trackCount,
+                        statsAlbums = stats.albumCount,
                         statsArtists = stats.artistCount,
                     )
                 }
             }
+        }
+    }
+
+    private suspend fun resolveStats(): com.lastwave.app.data.repository.HomeStats? {
+        val remote = runCatching { homeRepository.fetchStats().getOrNull() }.getOrNull()
+        return if (remote != null && (remote.scrobbles > 0L || remote.trackCount > 0L)) {
+            remote
+        } else {
+            runCatching { localStatsRepository.load()?.stats }.getOrNull() ?: remote
         }
     }
 
@@ -357,7 +369,7 @@ class FeedViewModel @Inject constructor(
                     )
                 }
                 lastLoadedMillis = System.currentTimeMillis()
-                val stats = runCatching { homeRepository.fetchStats().getOrNull() }.getOrNull()
+                val stats = resolveStats()
                 ensureActive()
                 if (ytAuth.connection.value == connection &&
                     sessionPreferences.session.value.username.takeIf(String::isNotBlank) == username
@@ -368,6 +380,7 @@ class FeedViewModel @Inject constructor(
                                 avatarUrl = if (current.avatarUrl.isNullOrBlank()) stats.avatarUrl else current.avatarUrl,
                                 statsScrobbles = stats.scrobbles,
                                 statsTracks = stats.trackCount,
+                                statsAlbums = stats.albumCount,
                                 statsArtists = stats.artistCount,
                             )
                         } else {
