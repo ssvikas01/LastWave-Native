@@ -1872,12 +1872,11 @@ internal fun FullPlayer(
                                             }
                                         }
                                     }
-                                    Spacer(Modifier.height(4.dp))
+                                    Spacer(Modifier.height(12.dp))
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = if (isVideoActive) 20.dp else 0.dp)
-                                            .graphicsLayer { translationY = -42.dp.toPx() },
+                                            .padding(horizontal = if (isVideoActive) 20.dp else 0.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                     ) {
                                     Row(
@@ -1941,79 +1940,24 @@ internal fun FullPlayer(
                                             }
                                         }
 
-                                        Spacer(Modifier.width(12.dp))
-
-                                        // Player Lyrics swaps Like + Lyrics for the lyrics screen's Full Screen + options pair.
-                                        AnimatedContent(
-                                            targetState = playerLyricsActive,
-                                            transitionSpec = {
-                                                (fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.85f)) togetherWith
-                                                    (fadeOut(tween(160)) + scaleOut(tween(160), targetScale = 0.85f))
-                                            },
-                                            contentAlignment = Alignment.CenterEnd,
-                                            label = "playerTitleActions",
-                                        ) { lyricsActions ->
-                                            if (lyricsActions) {
-                                                PlayerLyricsActions(
-                                                    ui = playerLyricsUi,
-                                                    lyricsState = lyricsState,
-                                                    track = track,
-                                                    progressState = progressState,
-                                                    lyricsOffsetMs = lyricsOffsetMs,
-                                                    resolvedArtworkUrl = resolvedAmbientUrl,
-                                                    primaryColor = ambientColor,
-                                                    onOpenFullLyrics = { onTabChange(FullPlayerTab.LYRICS) },
-                                                    onLyricsFontScaleChange = onSetLyricsFontScale ?: {},
-                                                    onOpenLyricsOffset = { showLyricsOffsetDialog = true },
-                                                    lyricsProviderStatuses = lyricsProviderStatuses,
-                                                    onProbeLyricsProviders = onProbeLyricsProviders,
-                                                    onSelectLyricsProvider = onSelectLyricsProvider,
-                                                    onTryAnotherLyricsSource = onTryAnotherLyricsSource,
-                                                )
-                                            } else Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                PlayerLikeButton(
-                                                    liked = isLiked,
-                                                    onClick = hapticClick(if (isLiked) HapticFeedbackType.ToggleOff else HapticFeedbackType.Confirm, onToggleLiked),
-                                                    size = 48.dp,
-                                                )
-                                                val lyricsInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                                                val isLyricsPressed by lyricsInteraction.collectIsPressedAsState()
-                                                val lyricsScale by animateFloatAsState(
-                                                    targetValue = if (isLyricsPressed) 0.82f else 1.0f,
-                                                    animationSpec = ExpressiveMotion.spatialSpring(),
-                                                    label = "lyricsScale",
-                                                )
-                                                LiquidGlassSurface(
-                                                    glassModifier = Modifier.liquidGlassChrome(CircleShape, LocalLiquidGlass.current, LiquidGlassPreset.PlayerControls, interactionSource = lyricsInteraction),
-                                                    onClick = hapticClick {
-                                                        lyricsFullscreen = true
-                                                        onTabChange(FullPlayerTab.LYRICS)
-                                                    },
-                                                    interactionSource = lyricsInteraction,
-                                                    shape = CircleShape,
-                                                    color = liquidGlassContainerColor(Color.White.copy(alpha = 0.14f)),
-                                                    contentColor = Color.White.copy(alpha = 0.90f),
-                                                    tonalElevation = 0.dp,
-                                                    shadowElevation = 0.dp,
-                                                    modifier = Modifier
-                                                        .size(46.dp)
-                                                        .graphicsLayer {
-                                                            scaleX = lyricsScale
-                                                            scaleY = lyricsScale
-                                                        },
-                                                ) {
-                                                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                                        Icon(
-                                                            Icons.Filled.FormatQuote,
-                                                            contentDescription = stringResource(com.lastwave.app.R.string.player_show_lyrics_cd),
-                                                            modifier = Modifier.size(24.dp),
-                                                        )
-                                                    }
-                                                }
-                                            }
+                                        if (playerLyricsActive) {
+                                            Spacer(Modifier.width(12.dp))
+                                            PlayerLyricsActions(
+                                                ui = playerLyricsUi,
+                                                lyricsState = lyricsState,
+                                                track = track,
+                                                progressState = progressState,
+                                                lyricsOffsetMs = lyricsOffsetMs,
+                                                resolvedArtworkUrl = resolvedAmbientUrl,
+                                                primaryColor = ambientColor,
+                                                onOpenFullLyrics = { onTabChange(FullPlayerTab.LYRICS) },
+                                                onLyricsFontScaleChange = onSetLyricsFontScale ?: {},
+                                                onOpenLyricsOffset = { showLyricsOffsetDialog = true },
+                                                lyricsProviderStatuses = lyricsProviderStatuses,
+                                                onProbeLyricsProviders = onProbeLyricsProviders,
+                                                onSelectLyricsProvider = onSelectLyricsProvider,
+                                                onTryAnotherLyricsSource = onTryAnotherLyricsSource,
+                                            )
                                         }
                                     }
                                     Spacer(Modifier.height(10.dp))
