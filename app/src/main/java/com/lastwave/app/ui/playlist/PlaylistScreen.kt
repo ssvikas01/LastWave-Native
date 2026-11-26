@@ -871,6 +871,22 @@ fun PlaylistScreen(
                                                                 )
                                                             },
                                                         )
+                                                        DropdownMenuItem(
+                                                            text = { Text("Play next") },
+                                                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                                                            onClick = {
+                                                                cardMenuExpanded = false
+                                                                musicPlayer.playNext(playlist.tracks.map(GeneratedTrack::toPlayableTrack))
+                                                            },
+                                                        )
+                                                        DropdownMenuItem(
+                                                            text = { Text("Add to queue") },
+                                                            leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                                                            onClick = {
+                                                                cardMenuExpanded = false
+                                                                musicPlayer.addToQueue(playlist.tracks.map(GeneratedTrack::toPlayableTrack))
+                                                            },
+                                                        )
                                                     }
                                                     DropdownMenuItem(
                                                         text = { Text("Rename") },
