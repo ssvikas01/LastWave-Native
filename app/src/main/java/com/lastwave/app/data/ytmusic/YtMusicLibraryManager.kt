@@ -125,6 +125,22 @@ class YtMusicLibraryManager @Inject constructor(
                     cached.remoteArtworkUrl?.takeIf(String::isNotBlank)?.let {
                         knownArtworkByRemoteId[cached.remotePlaylistId] = it
                     }
+                    if (cached.playlistContentVersion == PLAYLIST_CONTENT_VERSION && cached.tracks.isNotEmpty()) {
+                        details.putIfAbsent(
+                            cached.id,
+                            SavedPlaylist(
+                                id = cached.id,
+                                title = cached.title,
+                                subtitle = cached.subtitle,
+                                mode = "youtube_remote",
+                                tracks = cached.tracks.map(StoredTrack::toGenerated),
+                                createdAtMillis = 0L,
+                                remotePlaylistId = cached.remotePlaylistId,
+                                remoteArtworkUrl = cached.remoteArtworkUrl,
+                                remoteTrackCount = cached.remoteTrackCount,
+                            ),
+                        )
+                    }
                 }
             } catch (_: Exception) {}
         }
