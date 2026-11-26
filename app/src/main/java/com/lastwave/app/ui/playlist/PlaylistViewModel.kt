@@ -20,9 +20,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -339,17 +342,24 @@ class PlaylistViewModel @Inject constructor(
         trackIndexJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             _uiState.update { it.copy(isIndexingTracks = true) }
             try {
-                for (pl in unhydrated) {
-                    val loaded = runCatching { ytMusicLibraryManager.loadDetail(pl.id) }.getOrNull()
-                    if (loaded != null && loaded.tracks.isNotEmpty()) {
-                        _uiState.update { current ->
-                            current.copy(
-                                playlists = current.playlists.map { existing ->
-                                    if (existing.id == loaded.id) loaded else existing
-                                },
-                            )
+                val semaphore = Semaphore(4)
+                coroutineScope {
+                    unhydrated.map { pl ->
+                        async {
+                            semaphore.withPermit {
+                                val loaded = runCatching { ytMusicLibraryManager.loadDetail(pl.id) }.getOrNull()
+                                if (loaded != null && loaded.tracks.isNotEmpty()) {
+                                    _uiState.update { current ->
+                                        current.copy(
+                                            playlists = current.playlists.map { existing ->
+                                                if (existing.id == loaded.id) loaded else existing
+                                            },
+                                        )
+                                    }
+                                }
+                            }
                         }
-                    }
+                    }.awaitAll()
                 }
             } finally {
                 _uiState.update { it.copy(isIndexingTracks = false) }
@@ -527,6 +537,29 @@ class PlaylistViewModel @Inject constructor(
                 it.copy(toastMessage = if (uri.isNullOrBlank()) "Using automatic playlist cover" else "Playlist cover updated")
             }
             load()
+        }
+    }
+
+    fun setPinnedMultiple(ids: Set<Long>, pin: Boolean) {
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            for (id in ids) {
+                if (id < 0L) {
+                    ytMusicLibraryManager.togglePinned(id, pin)
+                } else {
+                    playlistRepository.setPinned(id, pin)
+                }
+            }
+            _uiState.update { current ->
+                val updatedPlaylists = current.playlists.map { if (it.id in ids) it.copy(isPinned = pin) else it }
+                val sorted = sortPlaylists(updatedPlaylists, current.sortMode)
+                current.copy(
+                    playlists = sorted,
+                    detailPlaylist = current.detailPlaylist?.let { if (it.id in ids) it.copy(isPinned = pin) else it },
+                    toastMessage = if (pin) "Pinned to top" else "Unpinned",
+                )
+            }
+            if (ids.any { it >= 0L }) load()
         }
     }
 
@@ -943,4 +976,3 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 }
-
