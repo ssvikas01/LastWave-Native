@@ -240,7 +240,7 @@ object FloatingNavDefaults {
     }
 }
 
-private val DockShape: CornerBasedShape = RoundedCornerShape(32.dp)
+private val DockShape: CornerBasedShape = RoundedCornerShape(18.dp)
 private val PillShape: Shape = CircleShape
 
 private fun <T> navSpring() = ExpressiveMotion.spatialSpring<T>()

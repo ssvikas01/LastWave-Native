@@ -476,53 +476,6 @@ fun SearchScreen(
                                 Spacer(Modifier.height(16.dp))
                             }
                         }
-
-                        item(key = "explore_section") {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(bottom = 12.dp),
-                                ) {
-                                    Icon(
-                                        Icons.Filled.Explore,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        stringResource(R.string.search_explore),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    EXPLORE_GENRES.forEach { genre ->
-                                        AssistChip(
-                                            onClick = {
-                                                focusManager.clearFocus()
-                                                viewModel.executeSearch(genre)
-                                            },
-                                            label = { Text(genre, style = MaterialTheme.typography.labelLarge) },
-                                            colors = AssistChipDefaults.assistChipColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                                labelColor = MaterialTheme.colorScheme.onSurface,
-                                            ),
-                                            shape = RoundedCornerShape(12.dp),
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
 

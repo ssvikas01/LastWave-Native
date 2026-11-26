@@ -380,7 +380,7 @@ internal fun MainControls(state: MusicPlayerState, player: MusicPlayer, isTransl
     val sideShape = RoundedCornerShape(20.dp)
     val gapSize = 14.dp
     val playCorner by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (state.isPlaying) 18.dp else 32.dp,
+        targetValue = if (state.isPlaying) 14.dp else 18.dp,
         animationSpec = ExpressiveMotion.spatialSpring(),
         label = "playCorner",
     )
