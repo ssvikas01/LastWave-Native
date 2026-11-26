@@ -2082,6 +2082,8 @@ class MusicPlayer @Inject constructor(
                 pendingRestoredSession = null
                 if (restoredSession != null && restoredSession.queue.isNotEmpty()) {
                     val restoredIndex = restoredSession.currentIndex.coerceIn(restoredSession.queue.indices)
+                    val restoredTrack = restoredSession.queue[restoredIndex]
+                    warmLikelyPlays(listOfNotNull(restoredTrack, restoredSession.queue.getOrNull(restoredIndex + 1)))
                     restoredPlayer.setMediaItems(
                         restoredSession.queue.map(PlayableTrack::toMediaItem),
                         restoredIndex,
@@ -3144,6 +3146,71 @@ class MusicPlayer @Inject constructor(
         persistPlaybackSession()
     }
 
+    fun playNext(tracks: List<PlayableTrack>) = onMain {
+        if (tracks.isEmpty()) return@onMain
+        val enriched = tracks.map { it.withYoutubeArtwork() }
+        if (isCasting) {
+            _state.update { snapshot ->
+                val queue = snapshot.queue.toMutableList()
+                queue.addAll((snapshot.currentIndex + 1).coerceIn(0, queue.size), enriched)
+                snapshot.copy(queue = queue)
+            }
+            persistPlaybackSession()
+            return@onMain
+        }
+        val wasEnded = player.playbackState == Player.STATE_ENDED
+        val wasEmpty = player.mediaItemCount == 0
+        val currentIndex = player.currentMediaItemIndex
+        val insertIndex = (currentIndex + 1).coerceIn(0, player.mediaItemCount)
+        enriched.forEachIndexed { offset, item ->
+            val targetIdx = insertIndex + offset
+            player.addMediaItem(targetIdx, item.toMediaItem())
+            placeInsertedIndexInShuffleOrder(targetIdx, last = false)
+        }
+        refresh(player)
+        enrichUpcomingQueue(currentIndex.coerceAtLeast(0))
+        val nextIndex = if (player.shuffleModeEnabled) player.nextMediaItemIndex else (currentIndex + 1)
+        if (nextIndex != C.INDEX_UNSET && nextIndex in 0 until player.mediaItemCount) {
+            preloadNextTrack(nextIndex, player.getMediaItemAt(nextIndex).toPlayableTrack())
+        }
+        if (wasEmpty || wasEnded) {
+            player.seekToDefaultPosition(insertIndex)
+            player.prepare()
+            player.play()
+        }
+        persistPlaybackSession()
+    }
+
+    fun addToQueue(tracks: List<PlayableTrack>) = onMain {
+        if (tracks.isEmpty()) return@onMain
+        val enriched = tracks.map { it.withYoutubeArtwork() }
+        if (isCasting) {
+            _state.update { it.copy(queue = it.queue + enriched) }
+            persistPlaybackSession()
+            return@onMain
+        }
+        val wasEnded = player.playbackState == Player.STATE_ENDED
+        val wasEmpty = player.mediaItemCount == 0
+        val previousCount = player.mediaItemCount
+        enriched.forEach { item ->
+            player.addMediaItem(item.toMediaItem())
+            placeInsertedIndexInShuffleOrder(player.mediaItemCount - 1, last = true)
+        }
+        refresh(player)
+        val currentIndex = player.currentMediaItemIndex
+        enrichUpcomingQueue(currentIndex.coerceAtLeast(0))
+        val nextIndex = if (player.shuffleModeEnabled) player.nextMediaItemIndex else currentIndex + 1
+        if (nextIndex in previousCount until player.mediaItemCount) {
+            preloadNextTrack(nextIndex, player.getMediaItemAt(nextIndex).toPlayableTrack())
+        }
+        if (wasEmpty || (wasEnded && currentIndex >= previousCount - 1)) {
+            player.seekToDefaultPosition(previousCount)
+            player.prepare()
+            player.play()
+        }
+        persistPlaybackSession()
+    }
+
     fun addToQueue(track: PlayableTrack) = onMain {
         val enriched = track.withYoutubeArtwork()
         if (isCasting) {
@@ -3786,7 +3853,7 @@ class MusicPlayer @Inject constructor(
     fun previous() = onMain {
         zeroVolumePlaybackObserver.onManualAction()
         if (isCasting) {
-            if (_state.value.positionMs > 5_000) seekTo(0)
+            if (_state.value.positionMs > 3_000) seekTo(0)
             else seekToQueueItem(previousQueueIndex(_state.value))
             return@onMain
         }
@@ -3795,7 +3862,7 @@ class MusicPlayer @Inject constructor(
         val isResolvingCurrent = pendingState.currentIndex != player.currentMediaItemIndex ||
             playRequest?.isActive == true
         val pos = if (isResolvingCurrent) 0L else player.currentPosition
-        if (pos > 5_000) {
+        if (pos > 3_000) {
             seekTo(0)
         } else {
             // Under shuffle, walk the explicit listening history first:
@@ -9274,11 +9341,11 @@ class MusicPlayer @Inject constructor(
         const val MAX_SILENT_RECOVERIES = 2
         const val PLAYBACK_RETRY_BASE_DELAY_MS = 350L
         const val PLAYBACK_RETRY_JITTER_MS = 250L
-        const val NEXT_TRACK_PREFETCH_BYTES = 128L * 1024
-        const val NEXT_TRACK_PREFETCH_SEGMENTS = 3L
-        const val NEXT_TRACK_PREFETCH_DELAY_MS = 500L
+        const val NEXT_TRACK_PREFETCH_BYTES = 1024L * 1024
+        const val NEXT_TRACK_PREFETCH_SEGMENTS = 6L
+        const val NEXT_TRACK_PREFETCH_DELAY_MS = 350L
         /** Delayed start keeps current-track caching off the startup path. */
-        const val CURRENT_TRACK_CACHE_START_DELAY_MS = 6_000L
+        const val CURRENT_TRACK_CACHE_START_DELAY_MS = 2_500L
         /** Bounded windows: progressive ahead-cache, never a full predownload. */
         const val CURRENT_TRACK_CACHE_CHUNK_BYTES = 2L * 1024 * 1024
         const val CURRENT_TRACK_CACHE_CHUNK_DELAY_MS = 500L
