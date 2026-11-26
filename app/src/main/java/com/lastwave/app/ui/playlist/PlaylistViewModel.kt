@@ -69,6 +69,7 @@ data class PlaylistUiState(
     val renamePlaylistId: Long? = null,
     val detailPlaylist: SavedPlaylist? = null,
     val isDetailLoading: Boolean = false,
+    val isIndexingTracks: Boolean = false,
 )
 
 /**
@@ -323,6 +324,36 @@ class PlaylistViewModel @Inject constructor(
                 android.util.Log.e("PlaylistViewModel", "Error refreshing YT library", e)
             }
             runCatching { ytMusicSyncManager.syncNow("playlist_open") }
+            ensureLibraryTracksIndexed()
+        }
+    }
+
+    private var trackIndexJob: kotlinx.coroutines.Job? = null
+
+    fun ensureLibraryTracksIndexed() {
+        if (trackIndexJob?.isActive == true) return
+        val unhydrated = _uiState.value.playlists.filter {
+            it.tracks.isEmpty() && (it.id < 0L || it.remotePlaylistId != null)
+        }
+        if (unhydrated.isEmpty()) return
+        trackIndexJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            _uiState.update { it.copy(isIndexingTracks = true) }
+            try {
+                for (pl in unhydrated) {
+                    val loaded = runCatching { ytMusicLibraryManager.loadDetail(pl.id) }.getOrNull()
+                    if (loaded != null && loaded.tracks.isNotEmpty()) {
+                        _uiState.update { current ->
+                            current.copy(
+                                playlists = current.playlists.map { existing ->
+                                    if (existing.id == loaded.id) loaded else existing
+                                },
+                            )
+                        }
+                    }
+                }
+            } finally {
+                _uiState.update { it.copy(isIndexingTracks = false) }
+            }
         }
     }
 

@@ -219,6 +219,11 @@ fun PlaylistScreen(
         viewModel.load()
         onPauseOrDispose { }
     }
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank()) {
+            viewModel.ensureLibraryTracksIndexed()
+        }
+    }
 
     var menuTarget by remember { mutableStateOf<Pair<Long, GeneratedTrack>?>(null) }
     var selectedPlaylists by remember { mutableStateOf(setOf<Long>()) }
@@ -754,16 +759,36 @@ fun PlaylistScreen(
                         }
 
                         if (searchQuery.isNotBlank()) {
-                            val matchingSongs = state.playlists
-                                .flatMap { pl ->
-                                    pl.tracks.filter { t ->
-                                        t.name.contains(searchQuery, ignoreCase = true) ||
-                                            t.artist.contains(searchQuery, ignoreCase = true) ||
-                                            t.album.orEmpty().contains(searchQuery, ignoreCase = true)
-                                    }.map { t -> pl.title to t }
+                            val matchingSongs = remember(state.playlists, searchQuery) {
+                                val tokens = searchQuery.trim().lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+                                state.playlists
+                                    .flatMap { pl ->
+                                        pl.tracks.filter { t ->
+                                            val haystack = "${t.name} ${t.artist} ${t.album.orEmpty()} ${pl.title}".lowercase()
+                                            tokens.all { tok -> haystack.contains(tok) }
+                                        }.map { t -> pl.title to t }
+                                    }
+                                    .distinctBy { (_, t) -> "${t.name.lowercase()}|${t.artist.lowercase()}" }
+                                    .take(40)
+                            }
+
+                            if (state.isIndexingTracks && matchingSongs.isEmpty() && filteredPlaylists.isEmpty()) {
+                                item(key = "library_indexing_hint") {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        com.lastwave.app.ui.common.ExpressiveInlineLoadingIndicator(size = 20.dp)
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(
+                                            text = "Indexing songs across your playlists...",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
-                                .distinctBy { (_, t) -> "${t.name.lowercase()}|${t.artist.lowercase()}" }
-                                .take(30)
+                            }
 
                             if (matchingSongs.isNotEmpty()) {
                                 item(key = "library_matching_songs_header") {
@@ -1013,11 +1038,13 @@ fun PlaylistScreen(
     }
 }
 
-private fun SavedPlaylist.matchesPlaylistSearch(query: String): Boolean =
-    query.isBlank() ||
-        title.contains(query, ignoreCase = true) ||
-        tracks.any { t ->
-            t.name.contains(query, ignoreCase = true) ||
-                t.artist.contains(query, ignoreCase = true) ||
-                t.album.orEmpty().contains(query, ignoreCase = true)
-        }
+private fun SavedPlaylist.matchesPlaylistSearch(query: String): Boolean {
+    if (query.isBlank()) return true
+    val tokens = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+    val titleLower = title.lowercase()
+    if (tokens.all { titleLower.contains(it) }) return true
+    return tracks.any { t ->
+        val haystack = "${t.name} ${t.artist} ${t.album.orEmpty()} $title".lowercase()
+        tokens.all { haystack.contains(it) }
+    }
+}
