@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Vikas Music</string>
-    <string name="widget_name">Vikas Music Player</string>
+    <string name="app_name">Momentum</string>
+    <string name="widget_name">Momentum Player</string>
     <string name="widget_description">Artwork, track details and playback controls for every media app</string>
     <string name="widget_obsidian_name">LastWave Obsidian Glass</string>
     <string name="widget_obsidian_description">Frosted obsidian glass player with translucent depth and crystal rim</string>
@@ -54,7 +54,7 @@
     <string name="update_available">Update Available</string>
     <string name="update">Update</string>
     <string name="dismiss_update">Dismiss update</string>
-    <string name="update_ready_to_install">Vikas Music v%1$s is ready to install</string>
+    <string name="update_ready_to_install">Momentum v%1$s is ready to install</string>
 
     <!-- Settings -->
     <string name="settings">Settings</string>
