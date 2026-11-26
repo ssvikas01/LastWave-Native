@@ -141,7 +141,7 @@ class SearchViewModel @Inject constructor(
     fun searchNow() {
         val q = _uiState.value.query
         if (q.isBlank()) return
-        executeSearch(q, autoPlayTop = true)
+        executeSearch(q, autoPlayTop = false)
     }
 
     fun executeSearch(query: String, autoPlayTop: Boolean = false) {
